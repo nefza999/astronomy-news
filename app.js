@@ -1679,6 +1679,7 @@ const AN_app = {
 };
 
 // Initialize app when DOM is loaded
+// Initialize app when DOM is loaded
 function AN_initializeApp() {
     AN_app.initialize();
     
@@ -1718,33 +1719,34 @@ function AN_initializeApp() {
             }
         `;
         document.head.appendChild(style);
-    },
-	// Debug function to reset everything
-	resetForDebug: function() {
-		console.log('Resetting app for debugging...');
-		
-		// Clear all local storage
-		localStorage.removeItem('AN_user');
-		localStorage.removeItem('AN_user_reactions');
-		localStorage.removeItem('AN_user_comments');
-		localStorage.removeItem('AN_interaction_stats');
-		localStorage.removeItem('AN_offline_queue');
-		
-		// Reset app state
-		this.state.user = null;
-		this.state.interactionStats = {};
-		this.state.offlineQueue = [];
-		
-		// Update UI
-		this.updateUserUI();
-		
-		// Show message
-		this.showMessage('App reset for debugging', 'info');
-		
-		// Reload page
-		setTimeout(() => location.reload(), 1000);
-	}
+    }
 }
+
+// Debug function to reset everything
+AN_app.resetForDebug = function() {
+    console.log('Resetting app for debugging...');
+    
+    // Clear all local storage
+    localStorage.removeItem('AN_user');
+    localStorage.removeItem('AN_user_reactions');
+    localStorage.removeItem('AN_user_comments');
+    localStorage.removeItem('AN_interaction_stats');
+    localStorage.removeItem('AN_offline_queue');
+    
+    // Reset app state
+    this.state.user = null;
+    this.state.interactionStats = {};
+    this.state.offlineQueue = [];
+    
+    // Update UI
+    this.updateUserUI();
+    
+    // Show message
+    this.showMessage('App reset for debugging', 'info');
+    
+    // Reload page
+    setTimeout(() => location.reload(), 1000);
+};
 
 // Export for modular use
 if (typeof module !== 'undefined' && module.exports) {
