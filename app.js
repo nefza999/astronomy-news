@@ -683,41 +683,21 @@ const AN_app = {
 			const isEmail = identifier.includes('@');
 			let email = identifier;
 			
-			// If it's a username, fetch the email first
-			if (!isEmail) {
-				const userQuery = await fetch(
-					`${this.config.supabaseUrl}/rest/v1/users?user_name=eq.${encodeURIComponent(identifier)}&select=email`,
-					{
-						headers: {
-							'apikey': this.config.supabaseKey,
-							'Content-Type': 'application/json'
-						}
-					}
-				);
-				
-				if (userQuery.ok) {
-					const users = await userQuery.json();
-					if (users.length > 0) {
-						email = users[0].email;
-					} else {
-						throw new Error('User not found');
-					}
-				}
-			}
-			
-			// IMPORTANT: Use the correct Supabase Auth endpoint
+			// IMPORTANT: Use the CORRECT Supabase Auth endpoint
+			// The endpoint is: /auth/v1/token?grant_type=password
 			const response = await fetch(`${this.config.supabaseUrl}/auth/v1/token?grant_type=password`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-					'apikey': this.config.supabaseKey
+					'apikey': this.config.supabaseKey,
+					'Authorization': `Bearer ${this.config.supabaseKey}`
 				},
 				body: JSON.stringify({
 					email: email,
 					password: password
 				})
 			});
-			
+
 			if (!response.ok) {
 				const error = await response.json();
 				console.error('Login failed:', error);
@@ -726,18 +706,17 @@ const AN_app = {
 				if (error.error === 'invalid_grant' || error.error_description?.includes('Email not confirmed')) {
 					throw new Error('Please check your email to confirm your account');
 				}
-				
 				throw new Error(error.error_description || 'Invalid credentials');
 			}
-			
+
 			const data = await response.json();
 			console.log('Login success:', data);
-			
-			// Get user profile from users table
+
+			// Get user profile from users table (by auth user_id)
 			let userProfile = null;
 			try {
 				const profileResponse = await fetch(
-					`${this.config.supabaseUrl}/rest/v1/users?user_id=eq.${data.user.id}`,
+					`${this.config.supabaseUrl}/rest/v1/users?user_id=eq.${data.user.id}&select=*`,
 					{
 						headers: {
 							'apikey': this.config.supabaseKey,
@@ -753,10 +732,13 @@ const AN_app = {
 			} catch (profileError) {
 				console.warn('Profile fetch failed:', profileError);
 			}
-			
+
 			// If no profile exists, create one
 			if (!userProfile) {
 				try {
+					// First, try to get username from email
+					const username = email.split('@')[0].toLowerCase();
+					
 					const createResponse = await fetch(`${this.config.supabaseUrl}/rest/v1/users`, {
 						method: 'POST',
 						headers: {
@@ -767,8 +749,8 @@ const AN_app = {
 						},
 						body: JSON.stringify({
 							user_id: data.user.id,
-							name: data.user.user_metadata?.name || email.split('@')[0],
-							user_name: data.user.user_metadata?.user_name || email.split('@')[0],
+							name: data.user.user_metadata?.name || username,
+							user_name: data.user.user_metadata?.user_name || username,
 							email: data.user.email,
 							preferences: {
 								language: this.state.currentLanguage,
@@ -788,9 +770,10 @@ const AN_app = {
 					console.warn('Profile creation failed:', createError);
 				}
 			}
-			
+
 			// Set user state
 			this.state.user = {
+				id: userProfile?.id,
 				user_id: data.user.id,
 				name: userProfile?.name || data.user.user_metadata?.name || email.split('@')[0],
 				user_name: userProfile?.user_name || data.user.user_metadata?.user_name || email.split('@')[0],
@@ -805,17 +788,16 @@ const AN_app = {
 				token: data.access_token,
 				refresh_token: data.refresh_token
 			};
-			
+
 			this.saveUserState();
 			this.updateUserUI();
 			await this.loadUserInteractions();
-			
 			return true;
-			
+
 		} catch (error) {
 			console.error('Login error:', error);
 			
-			// For local development fallback ONLY when specifically testing
+			// For local development fallback
 			if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
 				const testMode = localStorage.getItem('AN_test_mode');
 				if (testMode === 'true') {
@@ -823,7 +805,7 @@ const AN_app = {
 					this.state.user = {
 						user_id: 'test-user-' + Date.now(),
 						name: identifier.split('@')[0],
-						user_name: identifier,
+						user_name: identifier.includes('@') ? identifier.split('@')[0] : identifier,
 						email: identifier.includes('@') ? identifier : `${identifier}@example.com`,
 						token: 'test-token-' + Date.now(),
 						preferences: {
@@ -849,44 +831,7 @@ const AN_app = {
 		try {
 			console.log('Starting registration for:', userData.email);
 			
-			// Check if username already exists
-			const usernameCheck = await fetch(
-				`${this.config.supabaseUrl}/rest/v1/users?user_name=eq.${encodeURIComponent(userData.username)}`,
-				{
-					headers: {
-						'apikey': this.config.supabaseKey,
-						'Content-Type': 'application/json'
-					}
-				}
-			);
-			
-			if (usernameCheck.ok) {
-				const users = await usernameCheck.json();
-				if (users.length > 0) {
-					throw new Error('Username already exists');
-				}
-			}
-			
-			// Check if email already exists
-			const emailCheck = await fetch(
-				`${this.config.supabaseUrl}/rest/v1/users?email=eq.${encodeURIComponent(userData.email)}`,
-				{
-					headers: {
-						'apikey': this.config.supabaseKey,
-						'Content-Type': 'application/json'
-					}
-				}
-			);
-			
-			if (emailCheck.ok) {
-				const users = await emailCheck.json();
-				if (users.length > 0) {
-					throw new Error('Email already registered');
-				}
-			}
-			
-			// IMPORTANT: Sign up with Supabase Auth
-			// This will create the user in auth.users table
+			// IMPORTANT: Use the correct Supabase signup endpoint
 			const authResponse = await fetch(`${this.config.supabaseUrl}/auth/v1/signup`, {
 				method: 'POST',
 				headers: {
@@ -902,62 +847,40 @@ const AN_app = {
 					}
 				})
 			});
-			
+
 			if (!authResponse.ok) {
 				const error = await authResponse.json();
 				console.error('Auth signup error:', error);
+				
+				if (error.message?.includes('already registered')) {
+					throw new Error('Email already registered');
+				}
 				throw new Error(error.message || 'Registration failed');
 			}
-			
+
 			const authData = await authResponse.json();
 			console.log('Auth response success:', authData);
 			
-			// Now create the user profile in the users table
-			// IMPORTANT: Use the user ID from auth response
-			const userProfile = {
-				user_id: authData.user.id, // Use the ID from auth
-				name: userData.name,
-				user_name: userData.username,
-				email: userData.email,
-				password: userData.password, // This will be hashed by Supabase trigger if set up
-				preferences: {
-					language: this.state.currentLanguage,
-					theme: this.state.currentTheme,
-					notifications: true,
-					email_updates: false,
-					default_category: 'all'
-				}
-			};
-			
-			const profileResponse = await fetch(`${this.config.supabaseUrl}/rest/v1/users`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'apikey': this.config.supabaseKey,
-					'Prefer': 'return=representation'
-				},
-				body: JSON.stringify(userProfile)
-			});
-			
-			if (!profileResponse.ok) {
-				const error = await profileResponse.text();
-				console.error('Profile creation error:', error);
-				// Continue even if profile creation fails - user can complete later
-				console.warn('Profile creation failed, but auth user was created');
-			}
-			
 			// Auto-login after successful registration
 			const loginSuccess = await this.login(userData.email, userData.password);
-			
 			if (!loginSuccess) {
-				throw new Error('Failed to login after registration');
+				throw new Error('Registered successfully but failed to login');
 			}
 			
 			return true;
 			
 		} catch (error) {
 			console.error('Registration error:', error);
-			this.showMessage(error.message || 'Registration failed', 'error');
+			
+			// Check for specific errors
+			let errorMessage = error.message;
+			if (errorMessage.includes('already registered')) {
+				errorMessage = 'Email already registered. Try logging in instead.';
+			} else if (errorMessage.includes('weak password')) {
+				errorMessage = 'Password is too weak. Use at least 6 characters.';
+			}
+			
+			this.showMessage(errorMessage || 'Registration failed', 'error');
 			return false;
 		}
 	},
