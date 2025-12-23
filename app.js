@@ -827,7 +827,7 @@ const AN_app = {
 		}
 	},
     
-    register: async function(userData) {
+    	register: async function(userData) {
 		try {
 			console.log('Starting registration for:', userData.email);
 			
@@ -848,39 +848,88 @@ const AN_app = {
 				})
 			});
 
+			const authData = await authResponse.json();
+			
 			if (!authResponse.ok) {
-				const error = await authResponse.json();
-				console.error('Auth signup error:', error);
+				console.error('Auth signup error:', authData);
 				
-				if (error.message?.includes('already registered')) {
-					throw new Error('Email already registered');
+				// Handle specific errors
+				if (authData.msg?.includes('already registered') || authData.message?.includes('already registered')) {
+					throw new Error('Email already registered. Try logging in instead.');
 				}
-				throw new Error(error.message || 'Registration failed');
+				if (authResponse.status === 422) {
+					// Validation error (usually password too weak)
+					const errorMsg = authData.msg || authData.message || 'Password requirements not met. Use at least 6 characters.';
+					throw new Error(errorMsg);
+				}
+				if (authResponse.status === 500 && authData.message?.includes('user_id')) {
+					// Trigger error - user was created in auth but profile creation failed
+					// Try to continue with login
+					console.log('Auth user created but profile failed. Attempting login...');
+					// Continue to login attempt
+				} else {
+					throw new Error(authData.msg || authData.message || 'Registration failed');
+				}
 			}
 
-			const authData = await authResponse.json();
-			console.log('Auth response success:', authData);
+			console.log('Auth response:', authData);
 			
-			// Auto-login after successful registration
-			const loginSuccess = await this.login(userData.email, userData.password);
-			if (!loginSuccess) {
-				throw new Error('Registered successfully but failed to login');
+			// Check if we need email confirmation
+			if (authData.user && !authData.user.email_confirmed_at) {
+				// Email confirmation required
+				this.showMessage('Please check your email to confirm your account before logging in.', 'info');
+				document.getElementById('AN-registration-modal').classList.remove('AN-active');
+				return true;
 			}
 			
+			// Try to login after successful registration
+			if (authData.user) {
+				const loginSuccess = await this.login(userData.email, userData.password);
+				if (!loginSuccess) {
+					// User might need to confirm email first
+					this.showMessage('Account created! Please check your email to confirm your account.', 'info');
+					return true;
+				}
+				return true;
+			}
+			
+			// If we get here and no user, show success message
+			this.showMessage('Registration successful! Please check your email to confirm your account.', 'success');
+			document.getElementById('AN-registration-modal').classList.remove('AN-active');
 			return true;
 			
 		} catch (error) {
 			console.error('Registration error:', error);
 			
-			// Check for specific errors
-			let errorMessage = error.message;
-			if (errorMessage.includes('already registered')) {
-				errorMessage = 'Email already registered. Try logging in instead.';
-			} else if (errorMessage.includes('weak password')) {
-				errorMessage = 'Password is too weak. Use at least 6 characters.';
+			// For local development fallback
+			if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+				const testMode = localStorage.getItem('AN_test_mode');
+				if (testMode === 'true') {
+					console.log('Using local test user...');
+					// Create test user locally
+					this.state.user = {
+						user_id: 'test-user-' + Date.now(),
+						name: userData.name,
+						user_name: userData.username,
+						email: userData.email,
+						token: 'test-token-' + Date.now(),
+						preferences: {
+							language: this.state.currentLanguage,
+							theme: this.state.currentTheme,
+							notifications: true,
+							email_updates: false,
+							default_category: 'all'
+						}
+					};
+					this.saveUserState();
+					this.updateUserUI();
+					this.showMessage('Test account created successfully!', 'success');
+					document.getElementById('AN-registration-modal').classList.remove('AN-active');
+					return true;
+				}
 			}
 			
-			this.showMessage(errorMessage || 'Registration failed', 'error');
+			this.showMessage(error.message || 'Registration failed', 'error');
 			return false;
 		}
 	},
