@@ -577,71 +577,135 @@ const AN_app = {
     },
     
     handleLogin: async function() {
-        const email = document.getElementById('AN-login-email').value;
-        const password = document.getElementById('AN-login-password').value;
-        const rememberMe = document.getElementById('AN-remember-me').checked;
-        
-        // Simple validation
-        if (!email || !password) {
-            this.showMessage('An.validation.required');
-            return;
-        }
-        
-        const success = await this.login(email, password);
-        if (success) {
-            document.getElementById('AN-registration-modal').classList.remove('AN-active');
-            this.showMessage('An.message.loginSuccess');
-        }
-    },
+		const identifier = document.getElementById('AN-login-email').value; // Now accepts email OR username
+		const password = document.getElementById('AN-login-password').value;
+		const rememberMe = document.getElementById('AN-remember-me').checked;
+		
+		if (!identifier || !password) {
+			this.showMessage('An.validation.required', 'error');
+			return;
+		}
+		
+		const success = await this.login(identifier, password);
+		if (success) {
+			document.getElementById('AN-registration-modal').classList.remove('AN-active');
+			this.showMessage('An.message.loginSuccess', 'success');
+		}
+	},
     
-    handleRegistration: async function() {
-        const name = document.getElementById('AN-register-name').value;
-        const username = document.getElementById('AN-register-username').value;
-        const email = document.getElementById('AN-register-email').value;
-        const password = document.getElementById('AN-register-password').value;
-        const confirmPassword = document.getElementById('AN-register-confirm-password').value;
-        const agreeTerms = document.getElementById('AN-agree-terms').checked;
-        
-        // Validation
-        if (!name || !username || !email || !password || !confirmPassword) {
-            this.showMessage('An.validation.required');
-            return;
-        }
-        
-        if (password.length < 6) {
-            this.showMessage('An.validation.passwordLength');
-            return;
-        }
-        
-        if (password !== confirmPassword) {
-            this.showMessage('An.validation.passwordMatch');
-            return;
-        }
-        
-        if (!agreeTerms) {
-            this.showMessage('An.validation.agreeTerms');
-            return;
-        }
-        
-        const userData = {
-            name,
-            username,
-            email,
-            password
-        };
-        
-        const success = await this.register(userData);
-        if (success) {
-            document.getElementById('AN-registration-modal').classList.remove('AN-active');
-            this.showMessage('An.message.registerSuccess');
-        }
-    },
+    // Add password strength validation
+	validatePassword: function(password) {
+		const minLength = 8;
+		const hasUpperCase = /[A-Z]/.test(password);
+		const hasLowerCase = /[a-z]/.test(password);
+		const hasNumbers = /\d/.test(password);
+		const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+		
+		if (password.length < minLength) {
+			return 'Password must be at least 8 characters long';
+		}
+		if (!hasUpperCase || !hasLowerCase) {
+			return 'Password must contain both uppercase and lowercase letters';
+		}
+		if (!hasNumbers) {
+			return 'Password must contain at least one number';
+		}
+		if (!hasSpecialChar) {
+			return 'Password must contain at least one special character';
+		}
+		return null; // Password is valid
+	},
+
+	handleRegistration: async function() {
+		const name = document.getElementById('AN-register-name').value;
+		const username = document.getElementById('AN-register-username').value;
+		const email = document.getElementById('AN-register-email').value;
+		const password = document.getElementById('AN-register-password').value;
+		const confirmPassword = document.getElementById('AN-register-confirm-password').value;
+		const agreeTerms = document.getElementById('AN-agree-terms').checked;
+		
+		// Validation
+		if (!name || !username || !email || !password || !confirmPassword) {
+			this.showMessage('An.validation.required', 'error');
+			return;
+		}
+		
+		// Email validation
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		if (!emailRegex.test(email)) {
+			this.showMessage('An.validation.email', 'error');
+			return;
+		}
+		
+		// Username validation
+		if (username.length < 3 || username.length > 20) {
+			this.showMessage('An.validation.usernameLength', 'error');
+			return;
+		}
+		
+		// Password strength validation
+		const passwordError = this.validatePassword(password);
+		if (passwordError) {
+			this.showMessage(passwordError, 'error');
+			return;
+		}
+		
+		if (password !== confirmPassword) {
+			this.showMessage('An.validation.passwordMatch', 'error');
+			return;
+		}
+		
+		if (!agreeTerms) {
+			this.showMessage('Please agree to the Terms and Privacy Policy', 'error');
+			return;
+		}
+		
+		const userData = {
+			name,
+			username,
+			email,
+			password
+		};
+		
+		const success = await this.register(userData);
+		if (success) {
+			document.getElementById('AN-registration-modal').classList.remove('AN-active');
+			this.showMessage('An.message.registerSuccess', 'success');
+		}
+	},
     
     // Authentication methods
-    	login: async function(email, password) {
+    login: async function(identifier, password) {
 		try {
-			console.log('Attempting login for:', email);
+			console.log('Attempting login with:', identifier);
 			
+			// Check if identifier is email or username
+			const isEmail = identifier.includes('@');
+			
+			let email = identifier;
+			let username = identifier;
+			
+			// If it's not an email, query for user's email by username
+			if (!isEmail) {
+				const userQuery = await fetch(
+					`${this.config.supabaseUrl}/rest/v1/users?user_name=eq.${encodeURIComponent(identifier)}&select=email`,
+					{
+						headers: {
+							'apikey': this.config.supabaseKey
+						}
+					}
+				);
+				
+				if (userQuery.ok) {
+					const users = await userQuery.json();
+					if (users.length > 0) {
+						email = users[0].email;
+					} else {
+						throw new Error('User not found');
+					}
+				}
+			}
+
 			// Sign in with Supabase Auth
 			const response = await fetch(`${this.config.supabaseUrl}/auth/v1/token?grant_type=password`, {
 				method: 'POST',
@@ -651,17 +715,17 @@ const AN_app = {
 				},
 				body: JSON.stringify({ email, password })
 			});
-			
+
 			if (!response.ok) {
 				const error = await response.json();
 				console.error('Login failed:', error);
-				throw new Error(error.error_description || 'Login failed');
+				throw new Error(error.error_description || 'Invalid credentials');
 			}
-			
+
 			const data = await response.json();
-			console.log('Login success:', data);
-			
-			// Try to get user profile
+			console.log('Login success');
+
+			// Get user profile
 			let userData = null;
 			try {
 				const profileResponse = await fetch(
@@ -673,7 +737,6 @@ const AN_app = {
 						}
 					}
 				);
-				
 				if (profileResponse.ok) {
 					const profiles = await profileResponse.json();
 					userData = profiles.length > 0 ? profiles[0] : null;
@@ -681,7 +744,7 @@ const AN_app = {
 			} catch (profileError) {
 				console.warn('Profile fetch failed:', profileError);
 			}
-			
+
 			// If no profile exists, create one
 			if (!userData) {
 				try {
@@ -696,7 +759,7 @@ const AN_app = {
 						body: JSON.stringify({
 							user_id: data.user.id,
 							name: data.user.user_metadata?.name || email.split('@')[0],
-							user_name: data.user.user_metadata?.user_name || email.split('@')[0],
+							user_name: email.split('@')[0],
 							email: data.user.email,
 							preferences: {
 								language: this.state.currentLanguage,
@@ -707,7 +770,6 @@ const AN_app = {
 							}
 						})
 					});
-					
 					if (createResponse.ok) {
 						const createdProfile = await createResponse.json();
 						userData = createdProfile[0];
@@ -716,8 +778,8 @@ const AN_app = {
 					console.warn('Profile creation failed:', createError);
 				}
 			}
-			
-			// Set user state with whatever data we have
+
+			// Set user state
 			this.state.user = {
 				user_id: data.user.id,
 				name: userData?.name || data.user.user_metadata?.name || email.split('@')[0],
@@ -736,22 +798,20 @@ const AN_app = {
 			
 			this.saveUserState();
 			this.updateUserUI();
-			
-			// Load user interactions
 			await this.loadUserInteractions();
-			
 			return true;
+			
 		} catch (error) {
 			console.error('Login error:', error);
 			
-			// Fallback: Create local test user for development
+			// For local development fallback
 			if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-				console.log('Creating local test user for development...');
+				console.log('Using local test user...');
 				this.state.user = {
 					user_id: 'test-user-' + Date.now(),
-					name: email.split('@')[0],
-					user_name: email.split('@')[0],
-					email: email,
+					name: identifier.split('@')[0],
+					user_name: identifier,
+					email: identifier.includes('@') ? identifier : `${identifier}@example.com`,
 					token: 'test-token-' + Date.now(),
 					preferences: {
 						language: this.state.currentLanguage,
@@ -766,17 +826,50 @@ const AN_app = {
 				return true;
 			}
 			
-			this.showMessage(error.message || 'An.message.error', 'error');
+			this.showMessage(error.message || 'Invalid credentials', 'error');
 			return false;
 		}
 	},
-
     
     register: async function(userData) {
 		try {
 			console.log('Starting registration for:', userData.email);
 			
-			// First, sign up with Supabase Auth
+			// Check if username already exists
+			const usernameCheck = await fetch(
+				`${this.config.supabaseUrl}/rest/v1/users?user_name=eq.${encodeURIComponent(userData.username)}`,
+				{
+					headers: {
+						'apikey': this.config.supabaseKey
+					}
+				}
+			);
+			
+			if (usernameCheck.ok) {
+				const users = await usernameCheck.json();
+				if (users.length > 0) {
+					throw new Error('Username already exists');
+				}
+			}
+			
+			// Check if email already exists
+			const emailCheck = await fetch(
+				`${this.config.supabaseUrl}/rest/v1/users?email=eq.${encodeURIComponent(userData.email)}`,
+				{
+					headers: {
+						'apikey': this.config.supabaseKey
+					}
+				}
+			);
+			
+			if (emailCheck.ok) {
+				const users = await emailCheck.json();
+				if (users.length > 0) {
+					throw new Error('Email already registered');
+				}
+			}
+			
+			// Sign up with Supabase Auth
 			const authResponse = await fetch(`${this.config.supabaseUrl}/auth/v1/signup`, {
 				method: 'POST',
 				headers: {
@@ -794,17 +887,17 @@ const AN_app = {
 					}
 				})
 			});
-
+			
 			if (!authResponse.ok) {
 				const error = await authResponse.json();
 				console.error('Auth signup error:', error);
 				throw new Error(error.error_description || 'Registration failed');
 			}
-
+			
 			const authData = await authResponse.json();
 			console.log('Auth response success:', authData);
 			
-			// Immediately sign in to get access token
+			// Auto-login after registration
 			const signInResponse = await fetch(`${this.config.supabaseUrl}/auth/v1/token?grant_type=password`, {
 				method: 'POST',
 				headers: {
@@ -816,17 +909,15 @@ const AN_app = {
 					password: userData.password
 				})
 			});
-
+			
 			if (!signInResponse.ok) {
 				const error = await signInResponse.json();
-				console.error('Sign-in after registration error:', error);
 				throw new Error('Failed to sign in after registration');
 			}
-
-			const signInData = await signInResponse.json();
-			console.log('Sign-in success:', signInData);
 			
-			// Create user profile WITHOUT password field
+			const signInData = await signInResponse.json();
+			
+			// Create user profile in database
 			const profileResponse = await fetch(`${this.config.supabaseUrl}/rest/v1/users`, {
 				method: 'POST',
 				headers: {
@@ -840,7 +931,6 @@ const AN_app = {
 					name: userData.name,
 					user_name: userData.username,
 					email: userData.email,
-					// NO PASSWORD FIELD - Supabase Auth handles passwords
 					preferences: {
 						language: this.state.currentLanguage,
 						theme: this.state.currentTheme,
@@ -850,62 +940,42 @@ const AN_app = {
 					}
 				})
 			});
-
-			if (!profileResponse.ok) {
-				const errorText = await profileResponse.text();
-				console.error('Profile creation failed:', errorText);
-				
-				// If profile creation fails, still login with auth user
-				console.log('Using auth user without profile...');
-				this.state.user = {
-					user_id: signInData.user.id,
-					name: userData.name,
-					user_name: userData.username,
-					email: userData.email,
-					token: signInData.access_token,
-					refresh_token: signInData.refresh_token,
-					preferences: {
-						language: this.state.currentLanguage,
-						theme: this.state.currentTheme,
-						notifications: true,
-						email_updates: false,
-						default_category: 'all'
-					}
-				};
-			} else {
-				// Profile created successfully
+			
+			let userDataFromProfile = null;
+			if (profileResponse.ok) {
 				const profileData = await profileResponse.json();
-				console.log('Profile created:', profileData);
-				
-				this.state.user = {
-					...profileData[0],
-					token: signInData.access_token,
-					refresh_token: signInData.refresh_token
-				};
+				userDataFromProfile = profileData[0];
 			}
 			
-			// Save user and update UI
+			// Set user state
+			this.state.user = {
+				user_id: signInData.user.id,
+				name: userData.name,
+				user_name: userData.username,
+				email: userData.email,
+				token: signInData.access_token,
+				refresh_token: signInData.refresh_token,
+				preferences: userDataFromProfile?.preferences || {
+					language: this.state.currentLanguage,
+					theme: this.state.currentTheme,
+					notifications: true,
+					email_updates: false,
+					default_category: 'all'
+				}
+			};
+			
 			this.saveUserState();
 			this.updateUserUI();
-			
-			// Show success message
-			this.showMessage('An.message.registerSuccess', 'success');
-			
-			// Load user interactions
 			await this.loadUserInteractions();
 			
-			// Close registration modal
-			const modal = document.getElementById('AN-registration-modal');
-			if (modal) modal.classList.remove('AN-active');
-			
 			return true;
+			
 		} catch (error) {
 			console.error('Registration error:', error);
-			this.showMessage(error.message || 'An.message.error', 'error');
+			this.showMessage(error.message || 'Registration failed', 'error');
 			return false;
 		}
 	},
-
     
     logout: function() {
         this.state.user = null;
