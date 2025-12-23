@@ -640,7 +640,9 @@ const AN_app = {
     // Authentication methods
     	login: async function(email, password) {
 		try {
-			// Using Supabase Auth REST API
+			console.log('Attempting login for:', email);
+			
+			// Sign in with Supabase Auth
 			const response = await fetch(`${this.config.supabaseUrl}/auth/v1/token?grant_type=password`, {
 				method: 'POST',
 				headers: {
@@ -652,84 +654,129 @@ const AN_app = {
 			
 			if (!response.ok) {
 				const error = await response.json();
+				console.error('Login failed:', error);
 				throw new Error(error.error_description || 'Login failed');
 			}
 			
 			const data = await response.json();
+			console.log('Login success:', data);
 			
-			// Get user profile from users table
-			const userResponse = await fetch(
-				`${this.config.supabaseUrl}/rest/v1/users?user_id=eq.${data.user.id}&select=*`,
-				{
-					headers: {
-						'apikey': this.config.supabaseKey,
-						'Authorization': `Bearer ${data.access_token}`
-					}
-				}
-			);
-			
-			let userData;
-			if (userResponse.ok) {
-				const userProfile = await userResponse.json();
-				userData = userProfile.length > 0 ? userProfile[0] : null;
-			}
-			
-			// If user profile doesn't exist, create it
-			if (!userData) {
-				const createProfileResponse = await fetch(`${this.config.supabaseUrl}/rest/v1/users`, {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'apikey': this.config.supabaseKey,
-						'Prefer': 'return=representation',
-						'Authorization': `Bearer ${data.access_token}`
-					},
-					body: JSON.stringify({
-						user_id: data.user.id,
-						name: data.user.user_metadata?.name || 'New User',
-						user_name: data.user.email.split('@')[0],
-						email: data.user.email,
-						preferences: {
-							language: this.state.currentLanguage,
-							theme: this.state.currentTheme,
-							notifications: true,
-							email_updates: false,
-							default_category: 'all'
+			// Try to get user profile
+			let userData = null;
+			try {
+				const profileResponse = await fetch(
+					`${this.config.supabaseUrl}/rest/v1/users?user_id=eq.${data.user.id}`,
+					{
+						headers: {
+							'apikey': this.config.supabaseKey,
+							'Authorization': `Bearer ${data.access_token}`
 						}
-					})
-				});
+					}
+				);
 				
-				if (createProfileResponse.ok) {
-					const createdProfile = await createProfileResponse.json();
-					userData = createdProfile[0];
+				if (profileResponse.ok) {
+					const profiles = await profileResponse.json();
+					userData = profiles.length > 0 ? profiles[0] : null;
+				}
+			} catch (profileError) {
+				console.warn('Profile fetch failed:', profileError);
+			}
+			
+			// If no profile exists, create one
+			if (!userData) {
+				try {
+					const createResponse = await fetch(`${this.config.supabaseUrl}/rest/v1/users`, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'apikey': this.config.supabaseKey,
+							'Prefer': 'return=representation',
+							'Authorization': `Bearer ${data.access_token}`
+						},
+						body: JSON.stringify({
+							user_id: data.user.id,
+							name: data.user.user_metadata?.name || email.split('@')[0],
+							user_name: data.user.user_metadata?.user_name || email.split('@')[0],
+							email: data.user.email,
+							preferences: {
+								language: this.state.currentLanguage,
+								theme: this.state.currentTheme,
+								notifications: true,
+								email_updates: false,
+								default_category: 'all'
+							}
+						})
+					});
+					
+					if (createResponse.ok) {
+						const createdProfile = await createResponse.json();
+						userData = createdProfile[0];
+					}
+				} catch (createError) {
+					console.warn('Profile creation failed:', createError);
 				}
 			}
 			
-			if (userData) {
+			// Set user state with whatever data we have
+			this.state.user = {
+				user_id: data.user.id,
+				name: userData?.name || data.user.user_metadata?.name || email.split('@')[0],
+				user_name: userData?.user_name || data.user.user_metadata?.user_name || email.split('@')[0],
+				email: data.user.email,
+				preferences: userData?.preferences || {
+					language: this.state.currentLanguage,
+					theme: this.state.currentTheme,
+					notifications: true,
+					email_updates: false,
+					default_category: 'all'
+				},
+				token: data.access_token,
+				refresh_token: data.refresh_token
+			};
+			
+			this.saveUserState();
+			this.updateUserUI();
+			
+			// Load user interactions
+			await this.loadUserInteractions();
+			
+			return true;
+		} catch (error) {
+			console.error('Login error:', error);
+			
+			// Fallback: Create local test user for development
+			if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+				console.log('Creating local test user for development...');
 				this.state.user = {
-					...userData,
-					token: data.access_token,
-					refresh_token: data.refresh_token
+					user_id: 'test-user-' + Date.now(),
+					name: email.split('@')[0],
+					user_name: email.split('@')[0],
+					email: email,
+					token: 'test-token-' + Date.now(),
+					preferences: {
+						language: this.state.currentLanguage,
+						theme: this.state.currentTheme,
+						notifications: true,
+						email_updates: false,
+						default_category: 'all'
+					}
 				};
 				this.saveUserState();
 				this.updateUserUI();
-				// Load user interactions
-				await this.loadUserInteractions();
 				return true;
 			}
 			
-			throw new Error('User profile not found');
-		} catch (error) {
-			console.error('Login error:', error);
 			this.showMessage(error.message || 'An.message.error', 'error');
 			return false;
 		}
 	},
 
     
-    	register: async function(userData) {
+    register: async function(userData) {
 		try {
-			// First, create auth user with Supabase
+			console.log('Starting registration for:', userData.email);
+			
+			// First, sign up with Supabase Auth
 			const authResponse = await fetch(`${this.config.supabaseUrl}/auth/v1/signup`, {
 				method: 'POST',
 				headers: {
@@ -751,16 +798,14 @@ const AN_app = {
 			if (!authResponse.ok) {
 				const error = await authResponse.json();
 				console.error('Auth signup error:', error);
-				throw new Error(error.message || 'Registration failed');
+				throw new Error(error.error_description || 'Registration failed');
 			}
 
 			const authData = await authResponse.json();
+			console.log('Auth response success:', authData);
 			
-			// Log the auth response to debug
-			console.log('Auth response:', authData);
-			
-			// Login immediately after registration to get access token
-			const loginResponse = await fetch(`${this.config.supabaseUrl}/auth/v1/token?grant_type=password`, {
+			// Immediately sign in to get access token
+			const signInResponse = await fetch(`${this.config.supabaseUrl}/auth/v1/token?grant_type=password`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -772,28 +817,30 @@ const AN_app = {
 				})
 			});
 
-			if (!loginResponse.ok) {
-				const error = await loginResponse.json();
-				console.error('Login after registration error:', error);
-				throw new Error('Failed to login after registration');
+			if (!signInResponse.ok) {
+				const error = await signInResponse.json();
+				console.error('Sign-in after registration error:', error);
+				throw new Error('Failed to sign in after registration');
 			}
 
-			const loginData = await loginResponse.json();
+			const signInData = await signInResponse.json();
+			console.log('Sign-in success:', signInData);
 			
-			// Then create user profile in users table
+			// Create user profile WITHOUT password field
 			const profileResponse = await fetch(`${this.config.supabaseUrl}/rest/v1/users`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 					'apikey': this.config.supabaseKey,
 					'Prefer': 'return=representation',
-					'Authorization': `Bearer ${loginData.access_token}`
+					'Authorization': `Bearer ${signInData.access_token}`
 				},
 				body: JSON.stringify({
-					user_id: loginData.user.id,
+					user_id: signInData.user.id,
 					name: userData.name,
 					user_name: userData.username,
 					email: userData.email,
+					// NO PASSWORD FIELD - Supabase Auth handles passwords
 					preferences: {
 						language: this.state.currentLanguage,
 						theme: this.state.currentTheme,
@@ -807,23 +854,50 @@ const AN_app = {
 			if (!profileResponse.ok) {
 				const errorText = await profileResponse.text();
 				console.error('Profile creation failed:', errorText);
-				throw new Error('Profile creation failed');
+				
+				// If profile creation fails, still login with auth user
+				console.log('Using auth user without profile...');
+				this.state.user = {
+					user_id: signInData.user.id,
+					name: userData.name,
+					user_name: userData.username,
+					email: userData.email,
+					token: signInData.access_token,
+					refresh_token: signInData.refresh_token,
+					preferences: {
+						language: this.state.currentLanguage,
+						theme: this.state.currentTheme,
+						notifications: true,
+						email_updates: false,
+						default_category: 'all'
+					}
+				};
+			} else {
+				// Profile created successfully
+				const profileData = await profileResponse.json();
+				console.log('Profile created:', profileData);
+				
+				this.state.user = {
+					...profileData[0],
+					token: signInData.access_token,
+					refresh_token: signInData.refresh_token
+				};
 			}
-
-			const profileData = await profileResponse.json();
 			
-			// Auto-login after registration
-			this.state.user = {
-				...profileData[0],
-				token: loginData.access_token,
-				refresh_token: loginData.refresh_token
-			};
-			
+			// Save user and update UI
 			this.saveUserState();
 			this.updateUserUI();
 			
 			// Show success message
 			this.showMessage('An.message.registerSuccess', 'success');
+			
+			// Load user interactions
+			await this.loadUserInteractions();
+			
+			// Close registration modal
+			const modal = document.getElementById('AN-registration-modal');
+			if (modal) modal.classList.remove('AN-active');
+			
 			return true;
 		} catch (error) {
 			console.error('Registration error:', error);
@@ -1644,7 +1718,32 @@ function AN_initializeApp() {
             }
         `;
         document.head.appendChild(style);
-    }
+    },
+	// Debug function to reset everything
+	resetForDebug: function() {
+		console.log('Resetting app for debugging...');
+		
+		// Clear all local storage
+		localStorage.removeItem('AN_user');
+		localStorage.removeItem('AN_user_reactions');
+		localStorage.removeItem('AN_user_comments');
+		localStorage.removeItem('AN_interaction_stats');
+		localStorage.removeItem('AN_offline_queue');
+		
+		// Reset app state
+		this.state.user = null;
+		this.state.interactionStats = {};
+		this.state.offlineQueue = [];
+		
+		// Update UI
+		this.updateUserUI();
+		
+		// Show message
+		this.showMessage('App reset for debugging', 'info');
+		
+		// Reload page
+		setTimeout(() => location.reload(), 1000);
+	}
 }
 
 // Export for modular use

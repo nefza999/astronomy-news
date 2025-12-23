@@ -163,10 +163,10 @@
                         <li><a href="#" data-i18n="An.index.privacyPolicy">Privacy Policy</a></li>
                         <li><a href="#" data-i18n="An.index.termsOfUse">Terms of Use</a></li>
                     </ul>
+<button onclick="AN_app.resetForDebug()" style="position: fixed; bottom: 10px; right: 10px; z-index: 9999; padding: 5px 10px; background: red; color: white; border: none; border-radius: 5px;">
+    Debug Reset
+</button>
                 </div>
-            </div>
-            <div class="AN-footer-bottom">
-                <p>&copy; 2025 Astronomy News. All rights reserved.</p>
             </div>
         </div>
     </footer>
@@ -190,7 +190,7 @@
                 <form id="AN-login-form" class="AN-registration-form active">
                     <div class="AN-form-group">
                         <label for="AN-login-email" class="AN-form-label" data-i18n="An.auth.email">Email</label>
-                        <input type="email" id="AN-login-email" class="AN-form-input" required>
+                        <input type="email" id="AN-login-email" class="AN-form-input" required autocomplete="email">
                     </div>
                     <div class="AN-form-group">
                         <label for="AN-login-password" class="AN-form-label" data-i18n="An.auth.password">Password</label>
@@ -218,15 +218,15 @@
                 <form id="AN-register-form" class="AN-registration-form">
                     <div class="AN-form-group">
                         <label for="AN-register-name" class="AN-form-label" data-i18n="An.auth.name">Full Name</label>
-                        <input type="text" id="AN-register-name" class="AN-form-input" required>
+                        <input type="text" id="AN-register-name" class="AN-form-input" required autocomplete="name">
                     </div>
                     <div class="AN-form-group">
                         <label for="AN-register-username" class="AN-form-label" data-i18n="An.auth.username">Username</label>
-                        <input type="text" id="AN-register-username" class="AN-form-input" required>
+                        <input type="text" id="AN-register-username" class="AN-form-input" required autocomplete="username">
                     </div>
                     <div class="AN-form-group">
                         <label for="AN-register-email" class="AN-form-label" data-i18n="An.auth.email">Email</label>
-                        <input type="email" id="AN-register-email" class="AN-form-input" required>
+                        <input type="email" id="AN-register-email" class="AN-form-input" required autocomplete="email">
                     </div>
                     <div class="AN-form-group">
                         <label for="AN-register-password" class="AN-form-label" data-i18n="An.auth.password">Password</label>
