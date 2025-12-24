@@ -158,98 +158,68 @@ const AN_shareManager = {
     
     // Share to specific platform
     shareToPlatform: function(platform, itemId, itemType) {
-        		const item = itemId ? AN_getDataById(itemId) : null;
-		const language = window.AN_app?.state.currentLanguage || 'en';
-		let url, title, text, image;
-		
-		if (item) {
-			title = item[language]?.title || item.en.title;
-			text = item[language]?.subtitle || item.en.subtitle;
-			image = item.image ? `${this.config.appUrl}/${item.image}` : '';
-			url = `${this.config.appUrl}${window.location.pathname}?id=${itemId}`;
-		} else {
-			title = document.title;
-			text = 'Latest astronomy news and discoveries';
-			image = `${this.config.appUrl}/assets/icons/icon-512x512.png`;
-			url = window.location.href;
-		}
-		
-		// Encode parameters
-		const encodedUrl = encodeURIComponent(url);
-		const encodedTitle = encodeURIComponent(title);
-		const encodedText = encodeURIComponent(text);
-		const encodedHashtags = encodeURIComponent(this.config.hashtags.join(','));
-		
-		let shareUrl;
-		
-		switch (platform) {
-			case 'facebook':
-				shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedTitle}`;
-				break;
-			case 'twitter':
-				shareUrl = `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}&via=${this.config.twitterHandle.replace('@', '')}&hashtags=${encodedHashtags}`;
-				break;
-			case 'linkedin':
-				shareUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodedUrl}&title=${encodedTitle}&summary=${encodedText}`;
-				break;
-			case 'whatsapp':
-				shareUrl = `https://wa.me/?text=${encodedTitle}%20${encodedUrl}`;
-				break;
-			case 'telegram':
-				shareUrl = `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`;
-				break;
-			case 'email':
-				shareUrl = `mailto:?subject=${encodedTitle}&body=${encodedText}%0A%0A${encodedUrl}`;
-				break;
-			case 'copy':
-				this.copyToClipboard(url);
-				return; // Don't open new window for copy
-			default:
-				console.warn('Unknown platform:', platform);
-				return;
-		}
-		
-		// Open share window
-		this.openShareWindow(shareUrl);
-	},
-
-	// Create share buttons for an item
-	createShareButtons: function(itemId, itemType) {
-		const shareData = this.getShareData(itemId, itemType);
-		if (!shareData) return '';
-		
-		return `
-			<div class="AN-share-buttons">
-				<button class="AN-share-btn AN-share-facebook" data-platform="facebook" title="Share on Facebook">
-					<i class="fab fa-facebook-f"></i>
-				</button>
-				<button class="AN-share-btn AN-share-twitter" data-platform="twitter" title="Share on Twitter">
-					<i class="fab fa-twitter"></i>
-				</button>
-				<button class="AN-share-btn AN-share-linkedin" data-platform="linkedin" title="Share on LinkedIn">
-					<i class="fab fa-linkedin-in"></i>
-				</button>
-				<button class="AN-share-btn AN-share-whatsapp" data-platform="whatsapp" title="Share on WhatsApp">
-					<i class="fab fa-whatsapp"></i>
-				</button>
-				<button class="AN-share-btn AN-share-telegram" data-platform="telegram" title="Share on Telegram">
-					<i class="fab fa-telegram"></i>
-				</button>
-				<button class="AN-share-btn AN-share-email" data-platform="email" title="Share via Email">
-					<i class="fas fa-envelope"></i>
-				</button>
-				<button class="AN-share-btn AN-share-copy" data-platform="copy" title="Copy link">
-					<i class="fas fa-link"></i>
-				</button>
-				${navigator.share ? `
-					<button class="AN-share-btn AN-share-web" data-platform="web" title="Share via...">
-						<i class="fas fa-share-alt"></i>
-					</button>
-				` : ''}
-			</div>
-		`;
-	},
-
+        const item = itemId ? AN_getDataById(itemId) : null;
+        const language = window.AN_app?.state.currentLanguage || 'en';
+        
+        let url, title, text, image;
+        
+        if (item) {
+            title = item[language]?.title || item.en.title;
+            text = item[language]?.subtitle || item.en.subtitle;
+            image = item.image ? `${this.config.appUrl}/${item.image}` : '';
+            url = `${this.config.appUrl}${window.location.pathname}?id=${itemId}`;
+        } else {
+            title = document.title;
+            text = 'Latest astronomy news and discoveries';
+            image = `${this.config.appUrl}/assets/icons/icon-512x512.png`;
+            url = window.location.href;
+        }
+        
+        // Encode parameters
+        const encodedUrl = encodeURIComponent(url);
+        const encodedTitle = encodeURIComponent(title);
+        const encodedText = encodeURIComponent(text);
+        const encodedHashtags = encodeURIComponent(this.config.hashtags.join(','));
+        
+        let shareUrl;
+        
+        switch (platform) {
+            case 'facebook':
+                shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedTitle}`;
+                break;
+                
+            case 'twitter':
+                shareUrl = `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}&via=${this.config.twitterHandle.replace('@', '')}&hashtags=${encodedHashtags}`;
+                break;
+                
+            case 'linkedin':
+                shareUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodedUrl}&title=${encodedTitle}&summary=${encodedText}`;
+                break;
+                
+            case 'whatsapp':
+                shareUrl = `https://wa.me/?text=${encodedTitle}%20${encodedUrl}`;
+                break;
+                
+            case 'telegram':
+                shareUrl = `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`;
+                break;
+                
+            case 'email':
+                shareUrl = `mailto:?subject=${encodedTitle}&body=${encodedText}%0A%0A${encodedUrl}`;
+                break;
+                
+            case 'copy':
+                this.copyToClipboard(url);
+                return; // Don't open new window for copy
+                
+            default:
+                console.warn('Unknown platform:', platform);
+                return;
+        }
+        
+        // Open share window
+        this.openShareWindow(shareUrl);
+    },
     
     // Open share window
     openShareWindow: function(url) {
@@ -367,7 +337,36 @@ const AN_shareManager = {
         };
     },
     
-    
+    // Create share buttons for an item
+    createShareButtons: function(itemId, itemType) {
+        const shareData = this.getShareData(itemId, itemType);
+        if (!shareData) return '';
+        
+        return `
+            <div class="AN-share-buttons">
+                <button class="AN-share-btn AN-share-facebook" data-platform="facebook" title="Share on Facebook">
+                    <i class="fab fa-facebook-f"></i>
+                </button>
+                <button class="AN-share-btn AN-share-twitter" data-platform="twitter" title="Share on Twitter">
+                    <i class="fab fa-twitter"></i>
+                </button>
+                <button class="AN-share-btn AN-share-linkedin" data-platform="linkedin" title="Share on LinkedIn">
+                    <i class="fab fa-linkedin-in"></i>
+                </button>
+                <button class="AN-share-btn AN-share-whatsapp" data-platform="whatsapp" title="Share on WhatsApp">
+                    <i class="fab fa-whatsapp"></i>
+                </button>
+                <button class="AN-share-btn AN-share-copy" data-platform="copy" title="Copy link">
+                    <i class="fas fa-link"></i>
+                </button>
+                ${navigator.share ? `
+                    <button class="AN-share-btn AN-share-web" data-platform="web" title="Share via...">
+                        <i class="fas fa-share-alt"></i>
+                    </button>
+                ` : ''}
+            </div>
+        `;
+    },
     
     // Track share event
     trackShare: function(platform, itemId, itemType) {

@@ -113,7 +113,6 @@ function AN_renderNews(language = 'en', category = 'all') {
     
     // Get news data
     const newsItems = AN_getDataByType('news', category);
-    const translations = AN_translations[language] || AN_translations['en'];
     
     // Clear container
     container.innerHTML = '';
@@ -126,51 +125,91 @@ function AN_renderNews(language = 'en', category = 'all') {
     // Render each news item
     newsItems.forEach(item => {
         const stats = AN_getInteractionStats(item.id, 'news');
+        
         const newsCard = document.createElement('div');
         newsCard.className = 'AN-news-card';
         newsCard.innerHTML = `
-            <!-- ... existing image and content code ... -->
+            <div class="AN-news-image">
+                <div class="AN-image-placeholder" style="background-image: url('${item.image || 'assets2/images/news/default.jpg'}');"></div>
+                <span class="AN-news-badge ${item.category === 'local' ? 'AN-local-badge' : 'AN-global-badge'}">
+                    ${item.category === 'local' ? 'Tunisia' : 'Global'}
+                </span>
+            </div>
+            <div class="AN-news-content">
+                <h3 class="AN-news-title">${item[language]?.title || item.en.title}</h3>
+                <p class="AN-news-excerpt">${(item[language]?.subtitle || item.en.subtitle).substring(0, 150)}...</p>
+                <div class="AN-news-meta">
+                    <span class="AN-news-date">${AN_formatDate(item.date, language)}</span>
+                    <a href="#" class="AN-read-more" data-i18n="An.index.readMore" data-item-id="${item.id}">${AN_translations[language]?.['An.index.readMore'] || 'Read More'}</a>
+                </div>
+            </div>
             <div class="AN-reaction-buttons">
-                <!-- ... like/dislike/comment buttons ... -->
+                <button class="AN-reaction-btn AN-like-btn ${stats.userReaction === 'like' ? 'active' : ''}" 
+                        data-item-id="${item.id}" data-item-type="news">
+                    <i class="fas fa-thumbs-up"></i>
+                    <span class="AN-reaction-count">${stats.likes}</span>
+                    <span class="AN-reaction-label">Like</span>
+                </button>
+                
+                <button class="AN-reaction-btn AN-dislike-btn ${stats.userReaction === 'dislike' ? 'active' : ''}" 
+                        data-item-id="${item.id}" data-item-type="news">
+                    <i class="fas fa-thumbs-down"></i>
+                    <span class="AN-reaction-count">${stats.dislikes}</span>
+                    <span class="AN-reaction-label">Dislike</span>
+                </button>
+                
+                <button class="AN-reaction-btn AN-comment-btn" 
+                        data-item-id="${item.id}" data-item-type="news">
+                    <i class="fas fa-comment"></i>
+                    <span class="AN-reaction-count">${stats.comments}</span>
+                    <span class="AN-reaction-label">Comment</span>
+                </button>
+                
                 <div class="AN-share-btn" data-item-id="${item.id}" data-item-type="news">
                     <button class="AN-reaction-btn">
                         <i class="fas fa-share-alt"></i>
-                        <span class="AN-reaction-label">${translations['An.reaction.share'] || 'Share'}</span>
+                        <span class="AN-reaction-label">Share</span>
                     </button>
                     <div class="AN-share-dropdown">
                         <button class="AN-share-option" data-platform="facebook">
                             <i class="fab fa-facebook"></i>
-                            <span>${translations['An.reaction.shareFacebook'] || 'Share on Facebook'}</span>
+                            <span>Facebook</span>
                         </button>
                         <button class="AN-share-option" data-platform="twitter">
                             <i class="fab fa-twitter"></i>
-                            <span>${translations['An.reaction.shareTwitter'] || 'Share on Twitter'}</span>
+                            <span>Twitter</span>
                         </button>
                         <button class="AN-share-option" data-platform="linkedin">
                             <i class="fab fa-linkedin"></i>
-                            <span>${translations['An.reaction.shareLinkedIn'] || 'Share on LinkedIn'}</span>
+                            <span>LinkedIn</span>
                         </button>
                         <button class="AN-share-option" data-platform="whatsapp">
                             <i class="fab fa-whatsapp"></i>
-                            <span>${translations['An.reaction.shareWhatsApp'] || 'Share on WhatsApp'}</span>
-                        </button>
-                        <button class="AN-share-option" data-platform="telegram">
-                            <i class="fab fa-telegram"></i>
-                            <span>${translations['An.reaction.shareTelegram'] || 'Share on Telegram'}</span>
-                        </button>
-                        <button class="AN-share-option" data-platform="email">
-                            <i class="fas fa-envelope"></i>
-                            <span>${translations['An.reaction.shareEmail'] || 'Share via Email'}</span>
+                            <span>WhatsApp</span>
                         </button>
                         <button class="AN-share-option" data-platform="copy">
                             <i class="fas fa-link"></i>
-                            <span>${translations['An.reaction.copyLink'] || 'Copy Link'}</span>
+                            <span>Copy Link</span>
                         </button>
                     </div>
                 </div>
             </div>
         `;
+        
         container.appendChild(newsCard);
+        
+        // Add click event for read more
+        const readMoreLink = newsCard.querySelector('.AN-read-more');
+        if (readMoreLink) {
+            readMoreLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (window.AN_app && window.AN_app.navigateTo) {
+                    window.AN_app.navigateTo(`/?id=${item.id}`);
+                } else {
+                    window.location.href = `/?id=${item.id}`;
+                }
+            });
+        }
     });
 }
 
