@@ -173,11 +173,11 @@ function AN_renderNews(language = 'en', category = 'all') {
                     <div class="AN-share-dropdown">
                         <button class="AN-share-option" data-platform="facebook">
                             <i class="fab fa-facebook"></i>
-                            <span>Facebook</span>
+                            <span>${translations['An.reaction.shareFacebook'] || 'Share on Facebook'}</span>
                         </button>
                         <button class="AN-share-option" data-platform="twitter">
                             <i class="fab fa-twitter"></i>
-                            <span>Twitter</span>
+                            <span>${translations['An.reaction.shareTwitter'] || 'Share on Twitter'}</span>
                         </button>
                         <button class="AN-share-option" data-platform="linkedin">
                             <i class="fab fa-linkedin"></i>
@@ -276,11 +276,11 @@ function AN_renderEvents(language = 'en') {
                         <div class="AN-share-dropdown">
                             <button class="AN-share-option" data-platform="facebook">
                                 <i class="fab fa-facebook"></i>
-                                <span>Facebook</span>
+                                <span>${translations['An.reaction.shareFacebook'] || 'Share on Facebook'}</span>
                             </button>
                             <button class="AN-share-option" data-platform="twitter">
                                 <i class="fab fa-twitter"></i>
-                                <span>Twitter</span>
+                                <span>${translations['An.reaction.shareTwitter'] || 'Share on Twitter'}</span>
                             </button>
                             <button class="AN-share-option" data-platform="linkedin">
                                 <i class="fab fa-linkedin"></i>
@@ -385,11 +385,11 @@ function AN_renderAllNews(language = 'en') {
                     <div class="AN-share-dropdown">
                         <button class="AN-share-option" data-platform="facebook">
                             <i class="fab fa-facebook"></i>
-                            <span>Facebook</span>
+                            <span>${translations['An.reaction.shareFacebook'] || 'Share on Facebook'}</span>
                         </button>
                         <button class="AN-share-option" data-platform="twitter">
                             <i class="fab fa-twitter"></i>
-                            <span>Twitter</span>
+                            <span>${translations['An.reaction.shareTwitter'] || 'Share on Twitter'}</span>
                         </button>
                         <button class="AN-share-option" data-platform="linkedin">
                             <i class="fab fa-linkedin"></i>
