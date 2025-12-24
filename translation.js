@@ -49,6 +49,11 @@ const AN_translations = {
         'An.reaction.postComment': 'Post Comment',
         'An.reaction.noComments': 'No comments yet. Be the first!',
         'An.reaction.loadingComments': 'Loading comments...',
+    'An.auth.emailPlaceholder': 'Enter email or username',
+    'An.auth.namePlaceholder': 'Enter your full name',
+    'An.auth.usernamePlaceholder': 'Enter username',
+    'An.auth.passwordPlaceholder': 'Enter password',
+    'An.auth.confirmPasswordPlaceholder': 'Confirm password',
         
         'An.auth.login': 'Login',
         'An.auth.register': 'Register',
@@ -137,6 +142,11 @@ const AN_translations = {
         'An.reaction.postComment': 'Publier le commentaire',
         'An.reaction.noComments': 'Aucun commentaire. Soyez le premier !',
         'An.reaction.loadingComments': 'Chargement des commentaires...',
+    'An.auth.emailPlaceholder': 'Entrez votre email ou nom d\'utilisateur',
+    'An.auth.namePlaceholder': 'Entrez votre nom complet',
+    'An.auth.usernamePlaceholder': 'Entrez un nom d\'utilisateur',
+    'An.auth.passwordPlaceholder': 'Entrez un mot de passe',
+    'An.auth.confirmPasswordPlaceholder': 'Confirmez le mot de passe',
         
         'An.auth.login': 'Connexion',
         'An.auth.register': 'Inscription',
@@ -225,6 +235,11 @@ const AN_translations = {
         'An.reaction.postComment': 'نشر التعليق',
         'An.reaction.noComments': 'لا توجد تعليقات بعد. كن أول من يعلق!',
         'An.reaction.loadingComments': 'جاري تحميل التعليقات...',
+    'An.auth.emailPlaceholder': 'أدخل البريد الإلكتروني أو اسم المستخدم',
+    'An.auth.namePlaceholder': 'أدخل الاسم الكامل',
+    'An.auth.usernamePlaceholder': 'أدخل اسم المستخدم',
+    'An.auth.passwordPlaceholder': 'أدخل كلمة المرور',
+    'An.auth.confirmPasswordPlaceholder': 'تأكيد كلمة المرور',
         
         'An.auth.login': 'تسجيل الدخول',
         'An.auth.register': 'تسجيل',
@@ -265,6 +280,104 @@ const AN_translations = {
         'An.stats.shares': 'المشاركات'
     }
 };
+// Function to apply translations to the UI
+function AN_applyTranslations(language) {
+    const lang = AN_translations[language] || AN_translations['en'];
+    
+    // Translate elements with data-i18n
+    document.querySelectorAll('[data-i18n]').forEach(element => {
+        const key = element.getAttribute('data-i18n');
+        if (lang[key]) {
+            element.textContent = lang[key];
+        }
+    });
+    
+    // Translate elements with data-i18n-placeholder
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+        const key = element.getAttribute('data-i18n-placeholder');
+        if (lang[key]) {
+            element.placeholder = lang[key];
+        }
+    });
+    
+    // Translate buttons and other elements without data-i18n but with inner text
+    document.querySelectorAll('.AN-reaction-label').forEach(element => {
+        const parent = element.closest('.AN-reaction-btn');
+        if (parent) {
+            if (parent.classList.contains('AN-like-btn')) {
+                element.textContent = lang['An.reaction.like'];
+            } else if (parent.classList.contains('AN-dislike-btn')) {
+                element.textContent = lang['An.reaction.dislike'];
+            } else if (parent.classList.contains('AN-comment-btn')) {
+                element.textContent = lang['An.reaction.comment'];
+            } else if (parent.classList.contains('AN-share-btn') && !parent.querySelector('.AN-share-dropdown')) {
+                element.textContent = lang['An.reaction.share'];
+            }
+        }
+    });
+    
+    // Translate share dropdown options
+    document.querySelectorAll('.AN-share-option span').forEach(element => {
+        const platform = element.closest('.AN-share-option')?.dataset.platform;
+        if (platform === 'facebook') {
+            element.textContent = lang['An.reaction.shareFacebook'];
+        } else if (platform === 'twitter') {
+            element.textContent = lang['An.reaction.shareTwitter'];
+        } else if (platform === 'linkedin') {
+            element.textContent = lang['An.reaction.shareLinkedIn'];
+        } else if (platform === 'whatsapp') {
+            element.textContent = lang['An.reaction.shareWhatsApp'];
+        } else if (platform === 'copy') {
+            element.textContent = lang['An.reaction.copyLink'];
+        }
+    });
+    
+	// Translate all placeholder texts
+	document.querySelectorAll('input[placeholder], textarea[placeholder]').forEach(element => {
+		const placeholder = element.getAttribute('placeholder');
+		// Translate common placeholders
+		if (placeholder.includes('Enter email or username')) {
+			element.placeholder = lang['An.auth.emailPlaceholder'] || lang['An.auth.email'];
+		} else if (placeholder.includes('Add your comment')) {
+			element.placeholder = lang['An.reaction.addComment'];
+		} else if (placeholder.includes('Enter email')) {
+			element.placeholder = lang['An.auth.email'];
+		} else if (placeholder.includes('Enter password')) {
+			element.placeholder = lang['An.auth.password'];
+		} else if (placeholder.includes('Confirm password')) {
+			element.placeholder = lang['An.auth.confirmPassword'];
+		} else if (placeholder.includes('Full Name')) {
+			element.placeholder = lang['An.auth.name'];
+		} else if (placeholder.includes('Username')) {
+			element.placeholder = lang['An.auth.username'];
+		}
+	});
+    // Update RTL/LTR direction for Arabic
+    if (language === 'ar') {
+        document.body.classList.add('AN-rtl');
+        document.dir = 'rtl';
+        document.querySelectorAll('.AN-container, .AN-header-content, .AN-nav-list, .AN-hero-content, .AN-news-grid, .AN-events-list, .AN-footer-content').forEach(el => {
+            el.style.textAlign = 'right';
+        });
+    } else {
+        document.body.classList.remove('AN-rtl');
+        document.dir = 'ltr';
+        document.querySelectorAll('.AN-container, .AN-header-content, .AN-nav-list, .AN-hero-content, .AN-news-grid, .AN-events-list, .AN-footer-content').forEach(el => {
+            el.style.textAlign = 'left';
+        });
+    }
+    
+    // Update any other dynamic text that might not have data-i18n
+    const commentInput = document.getElementById('AN-comment-input');
+    if (commentInput && commentInput.placeholder.includes('Add your comment')) {
+        commentInput.placeholder = lang['An.reaction.addComment'];
+    }
+    
+    const submitComment = document.getElementById('AN-submit-comment');
+    if (submitComment && submitComment.textContent.includes('Post Comment')) {
+        submitComment.textContent = lang['An.reaction.postComment'];
+    }
+}
 
 // Export for modular use
 if (typeof module !== 'undefined' && module.exports) {

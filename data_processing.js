@@ -140,7 +140,7 @@ function AN_renderNews(language = 'en', category = 'all') {
                 <p class="AN-news-excerpt">${(item[language]?.subtitle || item.en.subtitle).substring(0, 150)}...</p>
                 <div class="AN-news-meta">
                     <span class="AN-news-date">${AN_formatDate(item.date, language)}</span>
-                    <a href="#" class="AN-read-more" data-i18n="An.index.readMore" data-item-id="${item.id}">Read More</a>
+                    <a href="#" class="AN-read-more" data-i18n="An.index.readMore" data-item-id="${item.id}">${AN_translations[language]?.['An.index.readMore'] || 'Read More'}</a>
                 </div>
             </div>
             <div class="AN-reaction-buttons">
@@ -352,7 +352,7 @@ function AN_renderAllNews(language = 'en') {
                 <p class="AN-news-excerpt">${(item[language]?.subtitle || item.en.subtitle).substring(0, 150)}...</p>
                 <div class="AN-news-meta">
                     <span class="AN-news-date">${AN_formatDate(item.date, language)}</span>
-                    <a href="#" class="AN-read-more" data-i18n="An.index.readMore" data-item-id="${item.id}">Read More</a>
+                    <a href="#" class="AN-read-more" data-i18n="An.index.readMore" data-item-id="${item.id}">${AN_translations[language]?.['An.index.readMore'] || 'Read More'}</a>
                 </div>
             </div>
             <div class="AN-reaction-buttons">
