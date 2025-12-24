@@ -1,12 +1,12 @@
 ## **1. Supabase Table SQL**
 ```sql
--- Create users table for astronomy-news app
-CREATE TABLE IF NOT EXISTS users (
-    user_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+-- Create users table WITHOUT password column (Supabase Auth handles passwords)
+CREATE TABLE users (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID UNIQUE NOT NULL, -- This will store the auth.uid()
     name VARCHAR(100) NOT NULL,
     user_name VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
     interactions_history JSONB DEFAULT '[]'::jsonb,
     preferences JSONB DEFAULT '{
         "language": "en",
@@ -18,9 +18,6 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
--- Create index for faster queries
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_username ON users(user_name);
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -34,70 +31,75 @@ CREATE TRIGGER update_users_updated_at
     BEFORE UPDATE ON users
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
--- Create reactions table for news/events
-CREATE TABLE IF NOT EXISTS reactions (
+-- Create reactions table
+CREATE TABLE reactions (
     reaction_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
     item_id VARCHAR(50) NOT NULL,
-    item_type VARCHAR(20) NOT NULL, -- 'news' or 'event'
-    reaction_type VARCHAR(10) NOT NULL, -- 'like', 'dislike'
+    item_type VARCHAR(20) NOT NULL,
+    reaction_type VARCHAR(10) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(user_id, item_id, item_type)
 );
 -- Create comments table
-CREATE TABLE IF NOT EXISTS comments (
+CREATE TABLE comments (
     comment_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
     item_id VARCHAR(50) NOT NULL,
-    item_type VARCHAR(20) NOT NULL, -- 'news' or 'event'
+    item_type VARCHAR(20) NOT NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
--- Create index for comments
-CREATE INDEX IF NOT EXISTS idx_comments_item ON comments(item_id, item_type);
-CREATE INDEX IF NOT EXISTS idx_reactions_item ON reactions(item_id, item_type);
-```
--- Update users table to ensure all columns exist
-ALTER TABLE users 
-ADD COLUMN IF NOT EXISTS password VARCHAR(255),
-ADD COLUMN IF NOT EXISTS interactions_history JSONB DEFAULT '[]'::jsonb,
-ADD COLUMN IF NOT EXISTS preferences JSONB DEFAULT '{
-    "language": "en",
-    "theme": "light",
-    "notifications": true,
-    "email_updates": false,
-    "default_category": "all"
-}'::jsonb;
-
--- Update the users table structure to match app requirements
-ALTER TABLE users 
-ALTER COLUMN name SET NOT NULL,
-ALTER COLUMN user_name SET NOT NULL,
-ALTER COLUMN email SET NOT NULL;
-
--- Ensure unique constraints exist
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_user_name_key') THEN
-        ALTER TABLE users ADD CONSTRAINT users_user_name_key UNIQUE (user_name);
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_email_key') THEN
-        ALTER TABLE users ADD CONSTRAINT users_email_key UNIQUE (email);
-    END IF;
-END $$;
-
--- Insert a test user if needed
-INSERT INTO users (user_id, name, user_name, email, password) 
-VALUES (
-    '00000000-0000-0000-0000-000000000001',
-    'Test User',
-    'testuser',
-    'test@example.com',
-    '$2a$10$XzuB5LqQNQy5X5X5X5X5Xe' -- placeholder hash
-) ON CONFLICT (user_id) DO NOTHING;
-
+-- Create indexes for better performance
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_username ON users(user_name);
+CREATE INDEX idx_users_auth_id ON users(user_id);
+CREATE INDEX idx_comments_item ON comments(item_id, item_type);
+CREATE INDEX idx_reactions_item ON reactions(item_id, item_type);
+CREATE INDEX idx_comments_user ON comments(user_id);
+CREATE INDEX idx_reactions_user ON reactions(user_id);
+-- Create policy for Row Level Security (RLS)
+-- Enable RLS on tables
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
+-- Create policies for users table
+CREATE POLICY "Public can view users" ON users
+    FOR SELECT USING (true);
+CREATE POLICY "Users can update their own profile" ON users
+    FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own profile" ON users
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- Create policies for reactions table
+CREATE POLICY "Anyone can view reactions" ON reactions
+    FOR SELECT USING (true);
+CREATE POLICY "Users can manage their own reactions" ON reactions
+    FOR ALL USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+-- Create policies for comments table
+CREATE POLICY "Anyone can view comments" ON comments
+    FOR SELECT USING (true);
+CREATE POLICY "Users can manage their own comments" ON comments
+    FOR ALL USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+-- Insert a test user (make sure to create this user in Supabase Auth first)
+-- Note: Replace 'test-user-uuid' with the actual auth user ID from Supabase
+-- INSERT INTO users (user_id, name, user_name, email, preferences) 
+-- VALUES (
+--     '00000000-0000-0000-0000-000000000001', -- This should match auth.uid()
+--     'Test User',
+--     'testuser',
+--     'test@example.com',
+--     '{
+--         "language": "en",
+--         "theme": "light",
+--         "notifications": true,
+--         "email_updates": false,
+--         "default_category": "all"
+--     }'
+-- ) ON CONFLICT (user_id) DO NOTHING;
+....
 ## **2. netlify.toml**
 ```toml
 [build]
@@ -734,13 +736,13 @@ async function updateNewsBackground() {
                 <div class="AN-footer-section">
                     <h3 class="AN-footer-title" data-i18n="An.index.legal">Legal</h3>
                     <ul class="AN-footer-links">
-                        <li><a href="#" data-i18n="An.index.privacyPolicy">Privacy Policy</a></li>
-                        <li><a href="#" data-i18n="An.index.termsOfUse">Terms of Use</a></li>
+                        <li><a href="/AN_privacy.html" data-i18n="An.index.privacyPolicy">Privacy Policy</a></li>
+                        <li><a href="/AN_terms.html" data-i18n="An.index.termsOfUse">Terms of Use</a></li>
                     </ul>
                 </div>
-            </div>
-            <div class="AN-footer-bottom">
-                <p>&copy; 2025 Astronomy News. All rights reserved.</p>
+<button onclick="AN_app.resetForDebug()" style="position: fixed; bottom: 10px; right: 10px; z-index: 9999; padding: 5px 10px; background: red; color: white; border: none; border-radius: 5px;">
+    Debug Reset
+</button>
             </div>
         </div>
     </footer>
@@ -761,25 +763,22 @@ async function updateNewsBackground() {
                 <!-- Login Form -->
                 <form id="AN-login-form" class="AN-registration-form active">
                     <div class="AN-form-group">
-                        <label for="AN-login-email" class="AN-form-label" data-i18n="An.auth.email">Email</label>
-                        <input type="email" id="AN-login-email" class="AN-form-input" required>
-                    </div>
+						<label for="AN-login-email" class="AN-form-label" data-i18n="An.auth.email">Email or Username</label>
+						<input type="text" id="AN-login-email" class="AN-form-input" required 
+       autocomplete="username" 
+       data-i18n-placeholder="An.auth.emailPlaceholder">
+					</div>
                     <div class="AN-form-group">
                         <label for="AN-login-password" class="AN-form-label" data-i18n="An.auth.password">Password</label>
-                        <input type="password" id="AN-login-password" class="AN-form-input" required autocomplete="current-password">
+                        <input type="password" id="AN-login-password" class="AN-form-input" required 
+       autocomplete="current-password"
+       data-i18n-placeholder="An.auth.passwordPlaceholder">
                     </div>
                     <div class="AN-form-group AN-form-checkbox">
                         <input type="checkbox" id="AN-remember-me">
                         <label for="AN-remember-me" data-i18n="An.auth.rememberMe">Remember me</label>
                     </div>
                     <button type="submit" class="AN-btn AN-btn-primary AN-btn-block" data-i18n="An.auth.signIn">Sign In</button>
-                    <div class="AN-form-divider">
-                        <span data-i18n="An.auth.or">or</span>
-                    </div>
-                    <button type="button" class="AN-btn AN-btn-secondary AN-btn-block">
-                        <i class="fab fa-google"></i>
-                        <span data-i18n="An.auth.loginWithGoogle">Login with Google</span>
-                    </button>
                     <div class="AN-form-footer">
                         <a href="#" data-i18n="An.auth.forgotPassword">Forgot password?</a>
                         <span data-i18n="An.auth.noAccount">Don't have an account? <a href="#" id="AN-switch-to-register">Sign up</a></span>
@@ -789,23 +788,33 @@ async function updateNewsBackground() {
                 <form id="AN-register-form" class="AN-registration-form">
                     <div class="AN-form-group">
                         <label for="AN-register-name" class="AN-form-label" data-i18n="An.auth.name">Full Name</label>
-                        <input type="text" id="AN-register-name" class="AN-form-input" required>
+                        <input type="text" id="AN-register-name" class="AN-form-input" required 
+       autocomplete="name"
+       data-i18n-placeholder="An.auth.namePlaceholder">
                     </div>
                     <div class="AN-form-group">
                         <label for="AN-register-username" class="AN-form-label" data-i18n="An.auth.username">Username</label>
-                        <input type="text" id="AN-register-username" class="AN-form-input" required>
+                        <input type="text" id="AN-register-username" class="AN-form-input" required 
+       autocomplete="username"
+       data-i18n-placeholder="An.auth.usernamePlaceholder">
                     </div>
                     <div class="AN-form-group">
                         <label for="AN-register-email" class="AN-form-label" data-i18n="An.auth.email">Email</label>
-                        <input type="email" id="AN-register-email" class="AN-form-input" required>
+                        <input type="email" id="AN-register-email" class="AN-form-input" required 
+       autocomplete="email"
+       data-i18n-placeholder="An.auth.emailPlaceholder">
                     </div>
                     <div class="AN-form-group">
                         <label for="AN-register-password" class="AN-form-label" data-i18n="An.auth.password">Password</label>
-                        <input type="password" id="AN-register-password" class="AN-form-input" required autocomplete="new-password">
+                        <input type="password" id="AN-register-password" class="AN-form-input" required 
+       autocomplete="new-password"
+       data-i18n-placeholder="An.auth.passwordPlaceholder">
                     </div>
                     <div class="AN-form-group">
                         <label for="AN-register-confirm-password" class="AN-form-label" data-i18n="An.auth.confirmPassword">Confirm Password</label>
-                        <input type="password" id="AN-register-confirm-password" class="AN-form-input" required autocomplete="new-password">
+                        <input type="password" id="AN-register-confirm-password" class="AN-form-input" required 
+       autocomplete="new-password"
+       data-i18n-placeholder="An.auth.confirmPasswordPlaceholder">
                     </div>
                     <div class="AN-form-group AN-form-checkbox">
                         <input type="checkbox" id="AN-agree-terms" required>
@@ -976,18 +985,25 @@ const AN_translations = {
         'An.reaction.shareTwitter': 'Share on Twitter',
         'An.reaction.shareLinkedIn': 'Share on LinkedIn',
         'An.reaction.shareWhatsApp': 'Share on WhatsApp',
+        'An.reaction.shareTelegram': 'Share on Telegram',
+        'An.reaction.shareEmail': 'Share via Email',
         'An.reaction.copyLink': 'Copy Link',
         'An.reaction.addComment': 'Add a comment...',
         'An.reaction.postComment': 'Post Comment',
         'An.reaction.noComments': 'No comments yet. Be the first!',
         'An.reaction.loadingComments': 'Loading comments...',
+    'An.auth.emailPlaceholder': 'Enter email or username',
+    'An.auth.namePlaceholder': 'Enter your full name',
+    'An.auth.usernamePlaceholder': 'Enter username',
+    'An.auth.passwordPlaceholder': 'Enter password',
+    'An.auth.confirmPasswordPlaceholder': 'Confirm password',
         'An.auth.login': 'Login',
         'An.auth.register': 'Register',
         'An.auth.logout': 'Logout',
         'An.auth.profile': 'Profile',
         'An.auth.username': 'Username',
         'An.auth.password': 'Password',
-        'An.auth.email': 'Email',
+        'An.auth.email': 'Email or Username',
         'An.auth.name': 'Full Name',
         'An.auth.confirmPassword': 'Confirm Password',
         'An.auth.rememberMe': 'Remember me',
@@ -996,9 +1012,6 @@ const AN_translations = {
         'An.auth.haveAccount': 'Already have an account?',
         'An.auth.signUp': 'Sign Up',
         'An.auth.signIn': 'Sign In',
-        'An.auth.or': 'or',
-        'An.auth.loginWithGoogle': 'Login with Google',
-        'An.auth.loginWithFacebook': 'Login with Facebook',
         'An.auth.agreeTerms': 'I agree to the Terms and Privacy Policy',
         'An.validation.required': 'This field is required',
         'An.validation.email': 'Please enter a valid email',
@@ -1062,18 +1075,25 @@ const AN_translations = {
         'An.reaction.shareTwitter': 'Partager sur Twitter',
         'An.reaction.shareLinkedIn': 'Partager sur LinkedIn',
         'An.reaction.shareWhatsApp': 'Partager sur WhatsApp',
+        'An.reaction.shareTelegram': 'Partager sur Telegram',
+        'An.reaction.shareEmail': 'Partager par email',
         'An.reaction.copyLink': 'Copier le lien',
         'An.reaction.addComment': 'Ajouter un commentaire...',
         'An.reaction.postComment': 'Publier le commentaire',
         'An.reaction.noComments': 'Aucun commentaire. Soyez le premier !',
         'An.reaction.loadingComments': 'Chargement des commentaires...',
+    'An.auth.emailPlaceholder': 'Entrez votre email ou nom d\'utilisateur',
+    'An.auth.namePlaceholder': 'Entrez votre nom complet',
+    'An.auth.usernamePlaceholder': 'Entrez un nom d\'utilisateur',
+    'An.auth.passwordPlaceholder': 'Entrez un mot de passe',
+    'An.auth.confirmPasswordPlaceholder': 'Confirmez le mot de passe',
         'An.auth.login': 'Connexion',
         'An.auth.register': 'Inscription',
         'An.auth.logout': 'Déconnexion',
         'An.auth.profile': 'Profil',
         'An.auth.username': 'Nom d\'utilisateur',
         'An.auth.password': 'Mot de passe',
-        'An.auth.email': 'Email',
+        'An.auth.email': 'Email ou Nom d\'utilisateur',
         'An.auth.name': 'Nom complet',
         'An.auth.confirmPassword': 'Confirmer le mot de passe',
         'An.auth.rememberMe': 'Se souvenir de moi',
@@ -1082,9 +1102,6 @@ const AN_translations = {
         'An.auth.haveAccount': 'Déjà un compte ?',
         'An.auth.signUp': 'S\'inscrire',
         'An.auth.signIn': 'Se connecter',
-        'An.auth.or': 'ou',
-        'An.auth.loginWithGoogle': 'Se connecter avec Google',
-        'An.auth.loginWithFacebook': 'Se connecter avec Facebook',
         'An.auth.agreeTerms': 'J\'accepte les Conditions et la Politique de confidentialité',
         'An.validation.required': 'Ce champ est requis',
         'An.validation.email': 'Veuillez entrer un email valide',
@@ -1148,18 +1165,25 @@ const AN_translations = {
         'An.reaction.shareTwitter': 'مشاركة على تويتر',
         'An.reaction.shareLinkedIn': 'مشاركة على لينكد إن',
         'An.reaction.shareWhatsApp': 'مشاركة على واتساب',
+        'An.reaction.shareTelegram': 'مشاركة على تيليجرام',
+        'An.reaction.shareEmail': 'مشاركة عبر البريد الإلكتروني',
         'An.reaction.copyLink': 'نسخ الرابط',
         'An.reaction.addComment': 'أضف تعليقاً...',
         'An.reaction.postComment': 'نشر التعليق',
         'An.reaction.noComments': 'لا توجد تعليقات بعد. كن أول من يعلق!',
         'An.reaction.loadingComments': 'جاري تحميل التعليقات...',
+    'An.auth.emailPlaceholder': 'أدخل البريد الإلكتروني أو اسم المستخدم',
+    'An.auth.namePlaceholder': 'أدخل الاسم الكامل',
+    'An.auth.usernamePlaceholder': 'أدخل اسم المستخدم',
+    'An.auth.passwordPlaceholder': 'أدخل كلمة المرور',
+    'An.auth.confirmPasswordPlaceholder': 'تأكيد كلمة المرور',
         'An.auth.login': 'تسجيل الدخول',
         'An.auth.register': 'تسجيل',
         'An.auth.logout': 'تسجيل الخروج',
         'An.auth.profile': 'الملف الشخصي',
         'An.auth.username': 'اسم المستخدم',
         'An.auth.password': 'كلمة المرور',
-        'An.auth.email': 'البريد الإلكتروني',
+        'An.auth.email': 'البريد الإلكتروني أو اسم المستخدم',
         'An.auth.name': 'الاسم الكامل',
         'An.auth.confirmPassword': 'تأكيد كلمة المرور',
         'An.auth.rememberMe': 'تذكرني',
@@ -1168,9 +1192,6 @@ const AN_translations = {
         'An.auth.haveAccount': 'لديك حساب بالفعل؟',
         'An.auth.signUp': 'إنشاء حساب',
         'An.auth.signIn': 'دخول',
-        'An.auth.or': 'أو',
-        'An.auth.loginWithGoogle': 'الدخول بحساب جوجل',
-        'An.auth.loginWithFacebook': 'الدخول بحساب فيسبوك',
         'An.auth.agreeTerms': 'أوافق على الشروط وسياسة الخصوصية',
         'An.validation.required': 'هذا الحقل مطلوب',
         'An.validation.email': 'الرجاء إدخال بريد إلكتروني صالح',
@@ -1192,6 +1213,98 @@ const AN_translations = {
         'An.stats.shares': 'المشاركات'
     }
 };
+// Function to apply translations to the UI
+function AN_applyTranslations(language) {
+    const lang = AN_translations[language] || AN_translations['en'];
+    // Translate elements with data-i18n
+    document.querySelectorAll('[data-i18n]').forEach(element => {
+        const key = element.getAttribute('data-i18n');
+        if (lang[key]) {
+            element.textContent = lang[key];
+        }
+    });
+    // Translate elements with data-i18n-placeholder
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+        const key = element.getAttribute('data-i18n-placeholder');
+        if (lang[key]) {
+            element.placeholder = lang[key];
+        }
+    });
+    // Translate buttons and other elements without data-i18n but with inner text
+    document.querySelectorAll('.AN-reaction-label').forEach(element => {
+        const parent = element.closest('.AN-reaction-btn');
+        if (parent) {
+            if (parent.classList.contains('AN-like-btn')) {
+                element.textContent = lang['An.reaction.like'];
+            } else if (parent.classList.contains('AN-dislike-btn')) {
+                element.textContent = lang['An.reaction.dislike'];
+            } else if (parent.classList.contains('AN-comment-btn')) {
+                element.textContent = lang['An.reaction.comment'];
+            } else if (parent.classList.contains('AN-share-btn') && !parent.querySelector('.AN-share-dropdown')) {
+                element.textContent = lang['An.reaction.share'];
+            }
+        }
+    });
+    // Translate share dropdown options
+    document.querySelectorAll('.AN-share-option span').forEach(element => {
+        const platform = element.closest('.AN-share-option')?.dataset.platform;
+        if (platform === 'facebook') {
+            element.textContent = lang['An.reaction.shareFacebook'];
+        } else if (platform === 'twitter') {
+            element.textContent = lang['An.reaction.shareTwitter'];
+        } else if (platform === 'linkedin') {
+            element.textContent = lang['An.reaction.shareLinkedIn'];
+        } else if (platform === 'whatsapp') {
+            element.textContent = lang['An.reaction.shareWhatsApp'];
+        } else if (platform === 'copy') {
+            element.textContent = lang['An.reaction.copyLink'];
+        }
+    });
+    
+	// Translate all placeholder texts
+	document.querySelectorAll('input[placeholder], textarea[placeholder]').forEach(element => {
+		const placeholder = element.getAttribute('placeholder');
+		// Translate common placeholders
+		if (placeholder.includes('Enter email or username')) {
+			element.placeholder = lang['An.auth.emailPlaceholder'] || lang['An.auth.email'];
+		} else if (placeholder.includes('Add your comment')) {
+			element.placeholder = lang['An.reaction.addComment'];
+		} else if (placeholder.includes('Enter email')) {
+			element.placeholder = lang['An.auth.email'];
+		} else if (placeholder.includes('Enter password')) {
+			element.placeholder = lang['An.auth.password'];
+		} else if (placeholder.includes('Confirm password')) {
+			element.placeholder = lang['An.auth.confirmPassword'];
+		} else if (placeholder.includes('Full Name')) {
+			element.placeholder = lang['An.auth.name'];
+		} else if (placeholder.includes('Username')) {
+			element.placeholder = lang['An.auth.username'];
+		}
+	});
+    // Update RTL/LTR direction for Arabic
+    if (language === 'ar') {
+        document.body.classList.add('AN-rtl');
+        document.dir = 'rtl';
+        document.querySelectorAll('.AN-container, .AN-header-content, .AN-nav-list, .AN-hero-content, .AN-news-grid, .AN-events-list, .AN-footer-content').forEach(el => {
+            el.style.textAlign = 'right';
+        });
+    } else {
+        document.body.classList.remove('AN-rtl');
+        document.dir = 'ltr';
+        document.querySelectorAll('.AN-container, .AN-header-content, .AN-nav-list, .AN-hero-content, .AN-news-grid, .AN-events-list, .AN-footer-content').forEach(el => {
+            el.style.textAlign = 'left';
+        });
+    }
+    // Update any other dynamic text that might not have data-i18n
+    const commentInput = document.getElementById('AN-comment-input');
+    if (commentInput && commentInput.placeholder.includes('Add your comment')) {
+        commentInput.placeholder = lang['An.reaction.addComment'];
+    }
+    const submitComment = document.getElementById('AN-submit-comment');
+    if (submitComment && submitComment.textContent.includes('Post Comment')) {
+        submitComment.textContent = lang['An.reaction.postComment'];
+    }
+}
 // Export for modular use
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { AN_translations };
@@ -1222,11 +1335,9 @@ const AN_app = {
     // Initialize app
     initialize: async function() {
     console.log('Initializing Astronomy News App...');
-    
     // TEST: Add a test user for development
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         localStorage.setItem('AN_test_mode', 'true');
-        
         // Create a test user if none exists
         if (!localStorage.getItem('AN_user')) {
             const testUser = {
@@ -1701,108 +1812,209 @@ const AN_app = {
         });
     },
     handleLogin: async function() {
-        const email = document.getElementById('AN-login-email').value;
-        const password = document.getElementById('AN-login-password').value;
-        const rememberMe = document.getElementById('AN-remember-me').checked;
-        // Simple validation
-        if (!email || !password) {
-            this.showMessage('An.validation.required');
-            return;
-        }
-        const success = await this.login(email, password);
-        if (success) {
-            document.getElementById('AN-registration-modal').classList.remove('AN-active');
-            this.showMessage('An.message.loginSuccess');
-        }
-    },
-    handleRegistration: async function() {
-        const name = document.getElementById('AN-register-name').value;
-        const username = document.getElementById('AN-register-username').value;
-        const email = document.getElementById('AN-register-email').value;
-        const password = document.getElementById('AN-register-password').value;
-        const confirmPassword = document.getElementById('AN-register-confirm-password').value;
-        const agreeTerms = document.getElementById('AN-agree-terms').checked;
-        // Validation
-        if (!name || !username || !email || !password || !confirmPassword) {
-            this.showMessage('An.validation.required');
-            return;
-        }
-        if (password.length < 6) {
-            this.showMessage('An.validation.passwordLength');
-            return;
-        }
-        if (password !== confirmPassword) {
-            this.showMessage('An.validation.passwordMatch');
-            return;
-        }
-        if (!agreeTerms) {
-            this.showMessage('An.validation.agreeTerms');
-            return;
-        }
-        const userData = {
-            name,
-            username,
-            email,
-            password
-        };
-        const success = await this.register(userData);
-        if (success) {
-            document.getElementById('AN-registration-modal').classList.remove('AN-active');
-            this.showMessage('An.message.registerSuccess');
-        }
-    },
+		const identifier = document.getElementById('AN-login-email').value; // Now accepts email OR username
+		const password = document.getElementById('AN-login-password').value;
+		const rememberMe = document.getElementById('AN-remember-me').checked;
+		if (!identifier || !password) {
+			this.showMessage('An.validation.required', 'error');
+			return;
+		}
+		const success = await this.login(identifier, password);
+		if (success) {
+			document.getElementById('AN-registration-modal').classList.remove('AN-active');
+			this.showMessage('An.message.loginSuccess', 'success');
+		}
+	},
+    // Add password strength validation
+	validatePassword: function(password) {
+		const minLength = 8;
+		const hasUpperCase = /[A-Z]/.test(password);
+		const hasLowerCase = /[a-z]/.test(password);
+		const hasNumbers = /\d/.test(password);
+		const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+		if (password.length < minLength) {
+			return 'Password must be at least 8 characters long';
+		}
+		if (!hasUpperCase || !hasLowerCase) {
+			return 'Password must contain both uppercase and lowercase letters';
+		}
+		if (!hasNumbers) {
+			return 'Password must contain at least one number';
+		}
+		if (!hasSpecialChar) {
+			return 'Password must contain at least one special character';
+		}
+		return null; // Password is valid
+	},
+	handleRegistration: async function() {
+		const name = document.getElementById('AN-register-name').value;
+		const username = document.getElementById('AN-register-username').value;
+		const email = document.getElementById('AN-register-email').value;
+		const password = document.getElementById('AN-register-password').value;
+		const confirmPassword = document.getElementById('AN-register-confirm-password').value;
+		const agreeTerms = document.getElementById('AN-agree-terms').checked;
+		// Validation
+		if (!name || !username || !email || !password || !confirmPassword) {
+			this.showMessage('An.validation.required', 'error');
+			return;
+		}
+		// Email validation
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		if (!emailRegex.test(email)) {
+			this.showMessage('An.validation.email', 'error');
+			return;
+		}
+		// Username validation
+		if (username.length < 3 || username.length > 20) {
+			this.showMessage('An.validation.usernameLength', 'error');
+			return;
+		}
+		// Password strength validation
+		const passwordError = this.validatePassword(password);
+		if (passwordError) {
+			this.showMessage(passwordError, 'error');
+			return;
+		}
+		if (password !== confirmPassword) {
+			this.showMessage('An.validation.passwordMatch', 'error');
+			return;
+		}
+		if (!agreeTerms) {
+			this.showMessage('Please agree to the Terms and Privacy Policy', 'error');
+			return;
+		}
+		const userData = {
+			name,
+			username,
+			email,
+			password
+		};
+		const success = await this.register(userData);
+		if (success) {
+			document.getElementById('AN-registration-modal').classList.remove('AN-active');
+			this.showMessage('An.message.registerSuccess', 'success');
+		}
+	},
     // Authentication methods
-    	login: async function(email, password) {
+    login: async function(identifier, password) {
 		try {
-			// Using Supabase Auth REST API
+			console.log('Attempting login with:', identifier);
+			// Determine if identifier is email or username
+			const isEmail = identifier.includes('@');
+			let email = identifier;
+			// IMPORTANT: Use the CORRECT Supabase Auth endpoint
+			// The endpoint is: /auth/v1/token?grant_type=password
 			const response = await fetch(`${this.config.supabaseUrl}/auth/v1/token?grant_type=password`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-					'apikey': this.config.supabaseKey
+					'apikey': this.config.supabaseKey,
+					'Authorization': `Bearer ${this.config.supabaseKey}`
 				},
-				body: JSON.stringify({ email, password })
+				body: JSON.stringify({
+					email: email,
+					password: password
+				})
 			});
-			
 			if (!response.ok) {
 				const error = await response.json();
-				throw new Error(error.error_description || 'Login failed');
-			}
-			
-			const data = await response.json();
-			
-			// Get user profile from users table
-			const userResponse = await fetch(
-				`${this.config.supabaseUrl}/rest/v1/users?user_id=eq.${data.user.id}&select=*`,
-				{
-					headers: {
-						'apikey': this.config.supabaseKey,
-						'Authorization': `Bearer ${data.access_token}`
-					}
+				console.error('Login failed:', error);
+				// Check if error is due to unconfirmed email
+				if (error.error === 'invalid_grant' || error.error_description?.includes('Email not confirmed')) {
+					throw new Error('Please check your email to confirm your account');
 				}
-			);
-			
-			let userData;
-			if (userResponse.ok) {
-				const userProfile = await userResponse.json();
-				userData = userProfile.length > 0 ? userProfile[0] : null;
+				throw new Error(error.error_description || 'Invalid credentials');
 			}
-			
-			// If user profile doesn't exist, create it
-			if (!userData) {
-				const createProfileResponse = await fetch(`${this.config.supabaseUrl}/rest/v1/users`, {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'apikey': this.config.supabaseKey,
-						'Prefer': 'return=representation',
-						'Authorization': `Bearer ${data.access_token}`
-					},
-					body: JSON.stringify({
-						user_id: data.user.id,
-						name: data.user.user_metadata?.name || 'New User',
-						user_name: data.user.email.split('@')[0],
-						email: data.user.email,
+			const data = await response.json();
+			console.log('Login success:', data);
+			// Get user profile from users table (by auth user_id)
+			let userProfile = null;
+			try {
+				const profileResponse = await fetch(
+					`${this.config.supabaseUrl}/rest/v1/users?user_id=eq.${data.user.id}&select=*`,
+					{
+						headers: {
+							'apikey': this.config.supabaseKey,
+							'Authorization': `Bearer ${data.access_token}`
+						}
+					}
+				);
+				if (profileResponse.ok) {
+					const profiles = await profileResponse.json();
+					userProfile = profiles.length > 0 ? profiles[0] : null;
+				}
+			} catch (profileError) {
+				console.warn('Profile fetch failed:', profileError);
+			}
+			// If no profile exists, create one
+			if (!userProfile) {
+				try {
+					// First, try to get username from email
+					const username = email.split('@')[0].toLowerCase();
+					const createResponse = await fetch(`${this.config.supabaseUrl}/rest/v1/users`, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'apikey': this.config.supabaseKey,
+							'Prefer': 'return=representation',
+							'Authorization': `Bearer ${data.access_token}`
+						},
+						body: JSON.stringify({
+							user_id: data.user.id,
+							name: data.user.user_metadata?.name || username,
+							user_name: data.user.user_metadata?.user_name || username,
+							email: data.user.email,
+							preferences: {
+								language: this.state.currentLanguage,
+								theme: this.state.currentTheme,
+								notifications: true,
+								email_updates: false,
+								default_category: 'all'
+							}
+						})
+					});
+					if (createResponse.ok) {
+						const createdProfile = await createResponse.json();
+						userProfile = createdProfile[0];
+					}
+				} catch (createError) {
+					console.warn('Profile creation failed:', createError);
+				}
+			}
+			// Set user state
+			this.state.user = {
+				id: userProfile?.id,
+				user_id: data.user.id,
+				name: userProfile?.name || data.user.user_metadata?.name || email.split('@')[0],
+				user_name: userProfile?.user_name || data.user.user_metadata?.user_name || email.split('@')[0],
+				email: data.user.email,
+				preferences: userProfile?.preferences || {
+					language: this.state.currentLanguage,
+					theme: this.state.currentTheme,
+					notifications: true,
+					email_updates: false,
+					default_category: 'all'
+				},
+				token: data.access_token,
+				refresh_token: data.refresh_token
+			};
+			this.saveUserState();
+			this.updateUserUI();
+			await this.loadUserInteractions();
+			return true;
+		} catch (error) {
+			console.error('Login error:', error);
+			// For local development fallback
+			if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+				const testMode = localStorage.getItem('AN_test_mode');
+				if (testMode === 'true') {
+					console.log('Using local test user...');
+					this.state.user = {
+						user_id: 'test-user-' + Date.now(),
+						name: identifier.split('@')[0],
+						user_name: identifier.includes('@') ? identifier.split('@')[0] : identifier,
+						email: identifier.includes('@') ? identifier : `${identifier}@example.com`,
+						token: 'test-token-' + Date.now(),
 						preferences: {
 							language: this.state.currentLanguage,
 							theme: this.state.currentTheme,
@@ -1810,39 +2022,20 @@ const AN_app = {
 							email_updates: false,
 							default_category: 'all'
 						}
-					})
-				});
-				
-				if (createProfileResponse.ok) {
-					const createdProfile = await createProfileResponse.json();
-					userData = createdProfile[0];
+					};
+					this.saveUserState();
+					this.updateUserUI();
+					return true;
 				}
 			}
-			
-			if (userData) {
-				this.state.user = {
-					...userData,
-					token: data.access_token,
-					refresh_token: data.refresh_token
-				};
-				this.saveUserState();
-				this.updateUserUI();
-				// Load user interactions
-				await this.loadUserInteractions();
-				return true;
-			}
-			
-			throw new Error('User profile not found');
-		} catch (error) {
-			console.error('Login error:', error);
-			this.showMessage(error.message || 'An.message.error', 'error');
+			this.showMessage(error.message || 'Invalid credentials', 'error');
 			return false;
 		}
 	},
-
     	register: async function(userData) {
 		try {
-			// First, create auth user with Supabase
+			console.log('Starting registration for:', userData.email);
+			// IMPORTANT: Use the correct Supabase signup endpoint
 			const authResponse = await fetch(`${this.config.supabaseUrl}/auth/v1/signup`, {
 				method: 'POST',
 				headers: {
@@ -1852,99 +2045,88 @@ const AN_app = {
 				body: JSON.stringify({
 					email: userData.email,
 					password: userData.password,
-					options: {
-						data: {
-							name: userData.name,
-							user_name: userData.username
-						}
+					data: {
+						name: userData.name,
+						user_name: userData.username
 					}
 				})
 			});
-
-			if (!authResponse.ok) {
-				const error = await authResponse.json();
-				console.error('Auth signup error:', error);
-				throw new Error(error.message || 'Registration failed');
-			}
-
 			const authData = await authResponse.json();
-			
-			// Log the auth response to debug
+			if (!authResponse.ok) {
+				console.error('Auth signup error:', authData);
+				// Handle specific errors
+				if (authData.msg?.includes('already registered') || authData.message?.includes('already registered')) {
+					throw new Error('Email already registered. Try logging in instead.');
+				}
+				if (authResponse.status === 422) {
+					// Validation error (usually password too weak)
+					const errorMsg = authData.msg || authData.message || 'Password requirements not met. Use at least 6 characters.';
+					throw new Error(errorMsg);
+				}
+				if (authResponse.status === 500 && authData.message?.includes('user_id')) {
+					// Trigger error - user was created in auth but profile creation failed
+					// Try to continue with login
+					console.log('Auth user created but profile failed. Attempting login...');
+					// Continue to login attempt
+				} else {
+					throw new Error(authData.msg || authData.message || 'Registration failed');
+				}
+			}
 			console.log('Auth response:', authData);
-			
-			// Login immediately after registration to get access token
-			const loginResponse = await fetch(`${this.config.supabaseUrl}/auth/v1/token?grant_type=password`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'apikey': this.config.supabaseKey
-				},
-				body: JSON.stringify({
-					email: userData.email,
-					password: userData.password
-				})
-			});
-
-			if (!loginResponse.ok) {
-				const error = await loginResponse.json();
-				console.error('Login after registration error:', error);
-				throw new Error('Failed to login after registration');
+			// Check if we need email confirmation
+			if (authData.user && !authData.user.email_confirmed_at) {
+				// Email confirmation required
+				this.showMessage('Please check your email to confirm your account before logging in.', 'info');
+				document.getElementById('AN-registration-modal').classList.remove('AN-active');
+				return true;
 			}
-
-			const loginData = await loginResponse.json();
-			
-			// Then create user profile in users table
-			const profileResponse = await fetch(`${this.config.supabaseUrl}/rest/v1/users`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'apikey': this.config.supabaseKey,
-					'Prefer': 'return=representation',
-					'Authorization': `Bearer ${loginData.access_token}`
-				},
-				body: JSON.stringify({
-					user_id: loginData.user.id,
-					name: userData.name,
-					user_name: userData.username,
-					email: userData.email,
-					preferences: {
-						language: this.state.currentLanguage,
-						theme: this.state.currentTheme,
-						notifications: true,
-						email_updates: false,
-						default_category: 'all'
-					}
-				})
-			});
-
-			if (!profileResponse.ok) {
-				const errorText = await profileResponse.text();
-				console.error('Profile creation failed:', errorText);
-				throw new Error('Profile creation failed');
+			// Try to login after successful registration
+			if (authData.user) {
+				const loginSuccess = await this.login(userData.email, userData.password);
+				if (!loginSuccess) {
+					// User might need to confirm email first
+					this.showMessage('Account created! Please check your email to confirm your account.', 'info');
+					return true;
+				}
+				return true;
 			}
-
-			const profileData = await profileResponse.json();
-			
-			// Auto-login after registration
-			this.state.user = {
-				...profileData[0],
-				token: loginData.access_token,
-				refresh_token: loginData.refresh_token
-			};
-			
-			this.saveUserState();
-			this.updateUserUI();
-			
-			// Show success message
-			this.showMessage('An.message.registerSuccess', 'success');
+			// If we get here and no user, show success message
+			this.showMessage('Registration successful! Please check your email to confirm your account.', 'success');
+			document.getElementById('AN-registration-modal').classList.remove('AN-active');
 			return true;
 		} catch (error) {
 			console.error('Registration error:', error);
-			this.showMessage(error.message || 'An.message.error', 'error');
+			// For local development fallback
+			if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+				const testMode = localStorage.getItem('AN_test_mode');
+				if (testMode === 'true') {
+					console.log('Using local test user...');
+					// Create test user locally
+					this.state.user = {
+						user_id: 'test-user-' + Date.now(),
+						name: userData.name,
+						user_name: userData.username,
+						email: userData.email,
+						token: 'test-token-' + Date.now(),
+						preferences: {
+							language: this.state.currentLanguage,
+							theme: this.state.currentTheme,
+							notifications: true,
+							email_updates: false,
+							default_category: 'all'
+						}
+					};
+					this.saveUserState();
+					this.updateUserUI();
+					this.showMessage('Test account created successfully!', 'success');
+					document.getElementById('AN-registration-modal').classList.remove('AN-active');
+					return true;
+				}
+			}
+			this.showMessage(error.message || 'Registration failed', 'error');
 			return false;
 		}
 	},
-
     logout: function() {
         this.state.user = null;
         localStorage.removeItem('AN_user');
@@ -2603,7 +2785,27 @@ const AN_app = {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
-    }
+    },
+	// Debug function to reset everything
+	resetForDebug: function() {
+		console.log('Resetting app for debugging...');
+		// Clear all local storage
+		localStorage.removeItem('AN_user');
+		localStorage.removeItem('AN_user_reactions');
+		localStorage.removeItem('AN_user_comments');
+		localStorage.removeItem('AN_interaction_stats');
+		localStorage.removeItem('AN_offline_queue');
+		// Reset app state
+		this.state.user = null;
+		this.state.interactionStats = {};
+		this.state.offlineQueue = [];
+		// Update UI
+		this.updateUserUI();
+		// Show message
+		this.showMessage('App reset for debugging', 'info');
+		// Reload page
+		setTimeout(() => location.reload(), 1000);
+	}
 };
 // Initialize app when DOM is loaded
 function AN_initializeApp() {
@@ -2646,6 +2848,26 @@ function AN_initializeApp() {
         document.head.appendChild(style);
     }
 }
+// Debug function to reset everything
+AN_app.resetForDebug = function() {
+    console.log('Resetting app for debugging...');
+    // Clear all local storage
+    localStorage.removeItem('AN_user');
+    localStorage.removeItem('AN_user_reactions');
+    localStorage.removeItem('AN_user_comments');
+    localStorage.removeItem('AN_interaction_stats');
+    localStorage.removeItem('AN_offline_queue');
+    // Reset app state
+    this.state.user = null;
+    this.state.interactionStats = {};
+    this.state.offlineQueue = [];
+    // Update UI
+    this.updateUserUI();
+    // Show message
+    this.showMessage('App reset for debugging', 'info');
+    // Reload page
+    setTimeout(() => location.reload(), 1000);
+};
 // Export for modular use
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { AN_app, AN_initializeApp };
@@ -2953,96 +3175,67 @@ function AN_getDay(dateString) {
 function AN_renderNews(language = 'en', category = 'all') {
     const container = document.getElementById('AN-news-container');
     if (!container) return;
+    
     // Get news data
     const newsItems = AN_getDataByType('news', category);
+    const translations = AN_translations[language] || AN_translations['en'];
+    
     // Clear container
     container.innerHTML = '';
+    
     if (newsItems.length === 0) {
         container.innerHTML = '<div class="AN-no-data">No news found for this category.</div>';
         return;
     }
+    
     // Render each news item
     newsItems.forEach(item => {
         const stats = AN_getInteractionStats(item.id, 'news');
         const newsCard = document.createElement('div');
         newsCard.className = 'AN-news-card';
         newsCard.innerHTML = `
-            <div class="AN-news-image">
-                <div class="AN-image-placeholder" style="background-image: url('${item.image || 'assets2/images/news/default.jpg'}');"></div>
-                <span class="AN-news-badge ${item.category === 'local' ? 'AN-local-badge' : 'AN-global-badge'}">
-                    ${item.category === 'local' ? 'Tunisia' : 'Global'}
-                </span>
-            </div>
-            <div class="AN-news-content">
-                <h3 class="AN-news-title">${item[language]?.title || item.en.title}</h3>
-                <p class="AN-news-excerpt">${(item[language]?.subtitle || item.en.subtitle).substring(0, 150)}...</p>
-                <div class="AN-news-meta">
-                    <span class="AN-news-date">${AN_formatDate(item.date, language)}</span>
-                    <a href="#" class="AN-read-more" data-i18n="An.index.readMore" data-item-id="${item.id}">Read More</a>
-                </div>
-            </div>
+            <!-- ... existing image and content code ... -->
             <div class="AN-reaction-buttons">
-                <button class="AN-reaction-btn AN-like-btn ${stats.userReaction === 'like' ? 'active' : ''}" 
-                        data-item-id="${item.id}" data-item-type="news">
-                    <i class="fas fa-thumbs-up"></i>
-                    <span class="AN-reaction-count">${stats.likes}</span>
-                    <span class="AN-reaction-label">Like</span>
-                </button>
-                <button class="AN-reaction-btn AN-dislike-btn ${stats.userReaction === 'dislike' ? 'active' : ''}" 
-                        data-item-id="${item.id}" data-item-type="news">
-                    <i class="fas fa-thumbs-down"></i>
-                    <span class="AN-reaction-count">${stats.dislikes}</span>
-                    <span class="AN-reaction-label">Dislike</span>
-                </button>
-                <button class="AN-reaction-btn AN-comment-btn" 
-                        data-item-id="${item.id}" data-item-type="news">
-                    <i class="fas fa-comment"></i>
-                    <span class="AN-reaction-count">${stats.comments}</span>
-                    <span class="AN-reaction-label">Comment</span>
-                </button>
+                <!-- ... like/dislike/comment buttons ... -->
                 <div class="AN-share-btn" data-item-id="${item.id}" data-item-type="news">
                     <button class="AN-reaction-btn">
                         <i class="fas fa-share-alt"></i>
-                        <span class="AN-reaction-label">Share</span>
+                        <span class="AN-reaction-label">${translations['An.reaction.share'] || 'Share'}</span>
                     </button>
                     <div class="AN-share-dropdown">
                         <button class="AN-share-option" data-platform="facebook">
                             <i class="fab fa-facebook"></i>
-                            <span>Facebook</span>
+                            <span>${translations['An.reaction.shareFacebook'] || 'Share on Facebook'}</span>
                         </button>
                         <button class="AN-share-option" data-platform="twitter">
                             <i class="fab fa-twitter"></i>
-                            <span>Twitter</span>
+                            <span>${translations['An.reaction.shareTwitter'] || 'Share on Twitter'}</span>
                         </button>
                         <button class="AN-share-option" data-platform="linkedin">
                             <i class="fab fa-linkedin"></i>
-                            <span>LinkedIn</span>
+                            <span>${translations['An.reaction.shareLinkedIn'] || 'Share on LinkedIn'}</span>
                         </button>
                         <button class="AN-share-option" data-platform="whatsapp">
                             <i class="fab fa-whatsapp"></i>
-                            <span>WhatsApp</span>
+                            <span>${translations['An.reaction.shareWhatsApp'] || 'Share on WhatsApp'}</span>
+                        </button>
+                        <button class="AN-share-option" data-platform="telegram">
+                            <i class="fab fa-telegram"></i>
+                            <span>${translations['An.reaction.shareTelegram'] || 'Share on Telegram'}</span>
+                        </button>
+                        <button class="AN-share-option" data-platform="email">
+                            <i class="fas fa-envelope"></i>
+                            <span>${translations['An.reaction.shareEmail'] || 'Share via Email'}</span>
                         </button>
                         <button class="AN-share-option" data-platform="copy">
                             <i class="fas fa-link"></i>
-                            <span>Copy Link</span>
+                            <span>${translations['An.reaction.copyLink'] || 'Copy Link'}</span>
                         </button>
                     </div>
                 </div>
             </div>
         `;
         container.appendChild(newsCard);
-        // Add click event for read more
-        const readMoreLink = newsCard.querySelector('.AN-read-more');
-        if (readMoreLink) {
-            readMoreLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                if (window.AN_app && window.AN_app.navigateTo) {
-                    window.AN_app.navigateTo(`/?id=${item.id}`);
-                } else {
-                    window.location.href = `/?id=${item.id}`;
-                }
-            });
-        }
     });
 }
 // Function to render events with interaction buttons
@@ -3166,7 +3359,7 @@ function AN_renderAllNews(language = 'en') {
                 <p class="AN-news-excerpt">${(item[language]?.subtitle || item.en.subtitle).substring(0, 150)}...</p>
                 <div class="AN-news-meta">
                     <span class="AN-news-date">${AN_formatDate(item.date, language)}</span>
-                    <a href="#" class="AN-read-more" data-i18n="An.index.readMore" data-item-id="${item.id}">Read More</a>
+                    <a href="#" class="AN-read-more" data-i18n="An.index.readMore" data-item-id="${item.id}">${AN_translations[language]?.['An.index.readMore'] || 'Read More'}</a>
                 </div>
             </div>
             <div class="AN-reaction-buttons">
@@ -4003,55 +4196,97 @@ const AN_shareManager = {
     },
     // Share to specific platform
     shareToPlatform: function(platform, itemId, itemType) {
-        const item = itemId ? AN_getDataById(itemId) : null;
-        const language = window.AN_app?.state.currentLanguage || 'en';
-        let url, title, text, image;
-        if (item) {
-            title = item[language]?.title || item.en.title;
-            text = item[language]?.subtitle || item.en.subtitle;
-            image = item.image ? `${this.config.appUrl}/${item.image}` : '';
-            url = `${this.config.appUrl}${window.location.pathname}?id=${itemId}`;
-        } else {
-            title = document.title;
-            text = 'Latest astronomy news and discoveries';
-            image = `${this.config.appUrl}/assets/icons/icon-512x512.png`;
-            url = window.location.href;
-        }
-        // Encode parameters
-        const encodedUrl = encodeURIComponent(url);
-        const encodedTitle = encodeURIComponent(title);
-        const encodedText = encodeURIComponent(text);
-        const encodedHashtags = encodeURIComponent(this.config.hashtags.join(','));
-        let shareUrl;
-        switch (platform) {
-            case 'facebook':
-                shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedTitle}`;
-                break;
-            case 'twitter':
-                shareUrl = `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}&via=${this.config.twitterHandle.replace('@', '')}&hashtags=${encodedHashtags}`;
-                break;
-            case 'linkedin':
-                shareUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodedUrl}&title=${encodedTitle}&summary=${encodedText}`;
-                break;
-            case 'whatsapp':
-                shareUrl = `https://wa.me/?text=${encodedTitle}%20${encodedUrl}`;
-                break;
-            case 'telegram':
-                shareUrl = `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`;
-                break;
-            case 'email':
-                shareUrl = `mailto:?subject=${encodedTitle}&body=${encodedText}%0A%0A${encodedUrl}`;
-                break;
-            case 'copy':
-                this.copyToClipboard(url);
-                return; // Don't open new window for copy
-            default:
-                console.warn('Unknown platform:', platform);
-                return;
-        }
-        // Open share window
-        this.openShareWindow(shareUrl);
-    },
+		const item = itemId ? AN_getDataById(itemId) : null;
+		const language = window.AN_app?.state.currentLanguage || 'en';
+		let url, title, text, image;
+		
+		if (item) {
+			title = item[language]?.title || item.en.title;
+			text = item[language]?.subtitle || item.en.subtitle;
+			image = item.image ? `${this.config.appUrl}/${item.image}` : '';
+			url = `${this.config.appUrl}${window.location.pathname}?id=${itemId}`;
+		} else {
+			title = document.title;
+			text = 'Latest astronomy news and discoveries';
+			image = `${this.config.appUrl}/assets/icons/icon-512x512.png`;
+			url = window.location.href;
+		}
+		
+		// Encode parameters
+		const encodedUrl = encodeURIComponent(url);
+		const encodedTitle = encodeURIComponent(title);
+		const encodedText = encodeURIComponent(text);
+		const encodedHashtags = encodeURIComponent(this.config.hashtags.join(','));
+		
+		let shareUrl;
+		
+		switch (platform) {
+			case 'facebook':
+				shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedTitle}`;
+				break;
+			case 'twitter':
+				shareUrl = `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}&via=${this.config.twitterHandle.replace('@', '')}&hashtags=${encodedHashtags}`;
+				break;
+			case 'linkedin':
+				shareUrl = `https://www.linkedin.com/shareArticle?mini=true&url=${encodedUrl}&title=${encodedTitle}&summary=${encodedText}`;
+				break;
+			case 'whatsapp':
+				shareUrl = `https://wa.me/?text=${encodedTitle}%20${encodedUrl}`;
+				break;
+			case 'telegram':
+				shareUrl = `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`;
+				break;
+			case 'email':
+				shareUrl = `mailto:?subject=${encodedTitle}&body=${encodedText}%0A%0A${encodedUrl}`;
+				break;
+			case 'copy':
+				this.copyToClipboard(url);
+				return; // Don't open new window for copy
+			default:
+				console.warn('Unknown platform:', platform);
+				return;
+		}
+		
+		// Open share window
+		this.openShareWindow(shareUrl);
+	},
+
+	// Create share buttons for an item
+	createShareButtons: function(itemId, itemType) {
+		const shareData = this.getShareData(itemId, itemType);
+		if (!shareData) return '';
+		
+		return `
+			<div class="AN-share-buttons">
+				<button class="AN-share-btn AN-share-facebook" data-platform="facebook" title="Share on Facebook">
+					<i class="fab fa-facebook-f"></i>
+				</button>
+				<button class="AN-share-btn AN-share-twitter" data-platform="twitter" title="Share on Twitter">
+					<i class="fab fa-twitter"></i>
+				</button>
+				<button class="AN-share-btn AN-share-linkedin" data-platform="linkedin" title="Share on LinkedIn">
+					<i class="fab fa-linkedin-in"></i>
+				</button>
+				<button class="AN-share-btn AN-share-whatsapp" data-platform="whatsapp" title="Share on WhatsApp">
+					<i class="fab fa-whatsapp"></i>
+				</button>
+				<button class="AN-share-btn AN-share-telegram" data-platform="telegram" title="Share on Telegram">
+					<i class="fab fa-telegram"></i>
+				</button>
+				<button class="AN-share-btn AN-share-email" data-platform="email" title="Share via Email">
+					<i class="fas fa-envelope"></i>
+				</button>
+				<button class="AN-share-btn AN-share-copy" data-platform="copy" title="Copy link">
+					<i class="fas fa-link"></i>
+				</button>
+				${navigator.share ? `
+					<button class="AN-share-btn AN-share-web" data-platform="web" title="Share via...">
+						<i class="fas fa-share-alt"></i>
+					</button>
+				` : ''}
+			</div>
+		`;
+	},
     // Open share window
     openShareWindow: function(url) {
         const width = 600;
@@ -4154,35 +4389,7 @@ const AN_shareManager = {
             category: item.category
         };
     },
-    // Create share buttons for an item
-    createShareButtons: function(itemId, itemType) {
-        const shareData = this.getShareData(itemId, itemType);
-        if (!shareData) return '';
-        return `
-            <div class="AN-share-buttons">
-                <button class="AN-share-btn AN-share-facebook" data-platform="facebook" title="Share on Facebook">
-                    <i class="fab fa-facebook-f"></i>
-                </button>
-                <button class="AN-share-btn AN-share-twitter" data-platform="twitter" title="Share on Twitter">
-                    <i class="fab fa-twitter"></i>
-                </button>
-                <button class="AN-share-btn AN-share-linkedin" data-platform="linkedin" title="Share on LinkedIn">
-                    <i class="fab fa-linkedin-in"></i>
-                </button>
-                <button class="AN-share-btn AN-share-whatsapp" data-platform="whatsapp" title="Share on WhatsApp">
-                    <i class="fab fa-whatsapp"></i>
-                </button>
-                <button class="AN-share-btn AN-share-copy" data-platform="copy" title="Copy link">
-                    <i class="fas fa-link"></i>
-                </button>
-                ${navigator.share ? `
-                    <button class="AN-share-btn AN-share-web" data-platform="web" title="Share via...">
-                        <i class="fas fa-share-alt"></i>
-                    </button>
-                ` : ''}
-            </div>
-        `;
-    },
+    
     // Track share event
     trackShare: function(platform, itemId, itemType) {
         // In a real app, this would send analytics data

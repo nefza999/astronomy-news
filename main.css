@@ -751,6 +751,55 @@
     background-color: var(--AN-bg-color);
 }
 
+.AN-share-option i {
+    width: 20px;
+    text-align: center;
+    font-size: 16px;
+}
+
+.AN-share-option[data-platform="facebook"] i {
+    color: #1877F2;
+}
+
+.AN-share-option[data-platform="twitter"] i {
+    color: #1DA1F2;
+}
+
+.AN-share-option[data-platform="linkedin"] i {
+    color: #0077B5;
+}
+
+.AN-share-option[data-platform="whatsapp"] i {
+    color: #25D366;
+}
+
+.AN-share-option[data-platform="telegram"] i {
+    color: #0088CC;
+}
+
+.AN-share-option[data-platform="email"] i {
+    color: var(--AN-primary-color);
+}
+
+.AN-share-option[data-platform="copy"] i {
+    color: var(--AN-secondary-color);
+}
+/* For RTL languages */
+.AN-rtl .AN-share-dropdown {
+    right: auto;
+    left: 0;
+}
+
+.AN-rtl .AN-share-dropdown:before {
+    right: auto;
+    left: 20px;
+}
+
+.AN-rtl .AN-share-option {
+    text-align: right;
+}
+
+
 .AN-news-content {
     padding: 20px;
     flex: 1;
