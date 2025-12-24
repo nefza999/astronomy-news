@@ -379,23 +379,23 @@ const AN_router = {
                             <div class="AN-share-dropdown">
                                 <button class="AN-share-option" data-platform="facebook">
                                     <i class="fab fa-facebook"></i>
-                                    <span>Facebook</span>
+                                    <span>${AN_translations[language]?.['An.reaction.shareFacebook'] || 'Share on Facebook'}</span>
                                 </button>
                                 <button class="AN-share-option" data-platform="twitter">
                                     <i class="fab fa-twitter"></i>
-                                    <span>Twitter</span>
+                                    <span>${AN_translations[language]?.['An.reaction.shareTwitter'] || 'Share on Twitter'}</span>
                                 </button>
                                 <button class="AN-share-option" data-platform="linkedin">
                                     <i class="fab fa-linkedin"></i>
-                                    <span>LinkedIn</span>
+                                    <span>${AN_translations[language]?.['An.reaction.shareLinkedIn'] || 'LinkedIn'}</span>
                                 </button>
                                 <button class="AN-share-option" data-platform="whatsapp">
                                     <i class="fab fa-whatsapp"></i>
-                                    <span>WhatsApp</span>
+                                    <span>${AN_translations[language]?.['An.reaction.shareWhatsApp'] || 'WhatsApp'}</span>
                                 </button>
                                 <button class="AN-share-option" data-platform="copy">
                                     <i class="fas fa-link"></i>
-                                    <span>Copy Link</span>
+                                    <span>${AN_translations[language]?.['An.reaction.copyLink'] || 'Copy Link'}</span>
                                 </button>
                             </div>
                         </div>
