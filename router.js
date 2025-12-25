@@ -2,13 +2,14 @@
 
 const AN_router = {
     routes: {
-        '/': 'home',
-        '/index.html': 'home',
-        '/AN_news.html': 'news',
-        '/AN_gallery.html': 'gallery',
-        '/AN_missions.html': 'missions',
-        '/AN_explore.html': 'explore',
-        '/AN_about.html': 'about'
+		'/': 'home',
+		'/index.html': 'home',
+		'/AN_news.html': 'news',
+		'/AN_gallery.html': 'gallery',
+		'/AN_missions.html': 'missions',
+		'/AN_explore.html': 'explore',
+		'/AN_about.html': 'about',
+		'/personal-profile.html': 'profile'
     },
     
     // Initialize router
@@ -393,6 +394,10 @@ const AN_router = {
                                     <i class="fab fa-whatsapp"></i>
                                     <span>${AN_translations[language]?.['An.reaction.shareWhatsApp'] || 'WhatsApp'}</span>
                                 </button>
+    <button class="AN-share-option" data-platform="telegram">
+        <i class="fab fa-telegram"></i>
+        <span>${AN_translations[language]?.['An.reaction.shareTelegram'] || 'Telegram'}</span>
+    </button>
                                 <button class="AN-share-option" data-platform="copy">
                                     <i class="fas fa-link"></i>
                                     <span>${AN_translations[language]?.['An.reaction.copyLink'] || 'Copy Link'}</span>

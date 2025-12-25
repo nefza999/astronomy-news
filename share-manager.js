@@ -208,6 +208,9 @@ const AN_shareManager = {
                 shareUrl = `mailto:?subject=${encodedTitle}&body=${encodedText}%0A%0A${encodedUrl}`;
                 break;
                 
+			case 'telegram':
+				shareUrl = `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`;
+				break;
             case 'copy':
                 this.copyToClipboard(url);
                 return; // Don't open new window for copy
@@ -356,6 +359,9 @@ const AN_shareManager = {
                 <button class="AN-share-btn AN-share-whatsapp" data-platform="whatsapp" title="Share on WhatsApp">
                     <i class="fab fa-whatsapp"></i>
                 </button>
+<button class="AN-share-btn AN-share-telegram" data-platform="telegram" title="Share on Telegram">
+    <i class="fab fa-telegram"></i>
+</button>
                 <button class="AN-share-btn AN-share-copy" data-platform="copy" title="Copy link">
                     <i class="fas fa-link"></i>
                 </button>

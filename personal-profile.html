@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Profile - Astronomy News</title>
+    <link rel="stylesheet" href="main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#4a6fa5">
+    <style>
+        /* Profile Page Specific Styles */
+        .AN-profile-container {
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+
+        .AN-profile-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .AN-back-btn {
+            background: var(--AN-primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: var(--AN-radius);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            transition: var(--AN-transition);
+        }
+
+        .AN-back-btn:hover {
+            background: var(--AN-secondary-color);
+            transform: translateY(-2px);
+        }
+
+        .AN-profile-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .AN-profile-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Avatar Section */
+        .AN-avatar-section {
+            background: var(--AN-card-bg);
+            border-radius: var(--AN-radius);
+            padding: 25px;
+            box-shadow: var(--AN-shadow);
+            text-align: center;
+        }
+
+        .AN-avatar-title {
+            margin-bottom: 20px;
+            color: var(--AN-text-color);
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .AN-avatar-current {
+            margin-bottom: 25px;
+        }
+
+        .AN-avatar-display {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            overflow: hidden;
+            border: 4px solid var(--AN-primary-color);
+            background: var(--AN-bg-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            color: var(--AN-primary-color);
+        }
+
+        .AN-avatar-display img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .AN-avatar-change-btn {
+            background: var(--AN-primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: var(--AN-radius);
+            cursor: pointer;
+            font-size: 14px;
+            transition: var(--AN-transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin: 0 auto;
+        }
+
+        .AN-avatar-change-btn:hover {
+            background: var(--AN-secondary-color);
+        }
+
+        /* Avatar Selection Modal */
+        .AN-avatar-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .AN-avatar-modal.active {
+            display: flex;
+        }
+
+        .AN-avatar-modal-content {
+            background: var(--AN-card-bg);
+            border-radius: var(--AN-radius);
+            padding: 30px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .AN-avatar-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .AN-avatar-modal-title {
+            font-size: 24px;
+            color: var(--AN-text-color);
+            margin: 0;
+        }
+
+        .AN-avatar-modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--AN-text-color);
+            cursor: pointer;
+            padding: 5px;
+            transition: var(--AN-transition);
+        }
+
+        .AN-avatar-modal-close:hover {
+            color: var(--AN-danger-color);
+        }
+
+        .AN-avatar-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .AN-avatar-option {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            overflow: hidden;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: var(--AN-transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--AN-bg-color);
+            font-size: 32px;
+            color: var(--AN-primary-color);
+        }
+
+        .AN-avatar-option:hover {
+            border-color: var(--AN-primary-color);
+            transform: scale(1.05);
+        }
+
+        .AN-avatar-option.active {
+            border-color: var(--AN-success-color);
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.3);
+        }
+
+        .AN-avatar-option img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .AN-avatar-upload-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--AN-border-color);
+        }
+
+        .AN-avatar-upload-label {
+            display: block;
+            margin-bottom: 10px;
+            color: var(--AN-text-color);
+            font-weight: 500;
+        }
+
+        .AN-avatar-upload-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px dashed var(--AN-border-color);
+            border-radius: var(--AN-radius);
+            background: var(--AN-bg-color);
+            color: var(--AN-text-color);
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+
+        .AN-avatar-upload-input:hover {
+            border-color: var(--AN-primary-color);
+        }
+
+        .AN-avatar-upload-preview {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            overflow: hidden;
+            margin: 0 auto 15px;
+            display: none;
+            border: 3px solid var(--AN-primary-color);
+        }
+
+        .AN-avatar-upload-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .AN-avatar-modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        /* Profile Info Section */
+        .AN-profile-info-section {
+            background: var(--AN-card-bg);
+            border-radius: var(--AN-radius);
+            padding: 25px;
+            box-shadow: var(--AN-shadow);
+        }
+
+        .AN-section-title {
+            color: var(--AN-text-color);
+            margin-bottom: 25px;
+            font-size: 22px;
+            font-weight: 600;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--AN-primary-color);
+        }
+
+        .AN-profile-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .AN-form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .AN-form-label {
+            color: var(--AN-text-color);
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .AN-form-input {
+            padding: 12px 15px;
+            border: 1px solid var(--AN-border-color);
+            border-radius: var(--AN-radius);
+            background: var(--AN-bg-color);
+            color: var(--AN-text-color);
+            font-size: 16px;
+            transition: var(--AN-transition);
+        }
+
+        .AN-form-input:focus {
+            outline: none;
+            border-color: var(--AN-primary-color);
+            box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.1);
+        }
+
+        .AN-form-input:read-only {
+            background: var(--AN-border-color);
+            cursor: not-allowed;
+        }
+
+        .AN-form-hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .AN-form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            justify-content: flex-end;
+        }
+
+        /* Password Section */
+        .AN-password-section {
+            background: var(--AN-card-bg);
+            border-radius: var(--AN-radius);
+            padding: 25px;
+            box-shadow: var(--AN-shadow);
+            margin-top: 30px;
+        }
+
+        /* Stats Section */
+        .AN-stats-section {
+            background: var(--AN-card-bg);
+            border-radius: var(--AN-radius);
+            padding: 25px;
+            box-shadow: var(--AN-shadow);
+            margin-top: 30px;
+        }
+
+        .AN-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .AN-stat-card {
+            background: var(--AN-bg-color);
+            border-radius: var(--AN-radius);
+            padding: 20px;
+            text-align: center;
+            border: 1px solid var(--AN-border-color);
+            transition: var(--AN-transition);
+        }
+
+        .AN-stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--AN-shadow);
+        }
+
+        .AN-stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--AN-primary-color);
+            margin-bottom: 5px;
+        }
+
+        .AN-stat-label {
+            font-size: 14px;
+            color: var(--AN-text-color);
+            opacity: 0.8;
+        }
+
+        /* Toast Notification */
+        .AN-profile-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--AN-success-color);
+            color: white;
+            padding: 12px 24px;
+            border-radius: var(--AN-radius);
+            box-shadow: var(--AN-shadow);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            animation: AN-toast-slide-in 0.3s ease;
+        }
+
+        @keyframes AN-toast-slide-in {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes AN-toast-slide-out {
+            from {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+        }
+
+        /* Loading State */
+        .AN-loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--AN-border-color);
+            border-top-color: var(--AN-primary-color);
+            border-radius: 50%;
+            animation: AN-spin 1s linear infinite;
+        }
+
+        @keyframes AN-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Danger Zone */
+        .AN-danger-zone {
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid var(--AN-danger-color);
+            border-radius: var(--AN-radius);
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        .AN-danger-title {
+            color: var(--AN-danger-color);
+            margin-bottom: 15px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .AN-danger-text {
+            color: var(--AN-text-color);
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        /* Edit Mode */
+        .AN-edit-mode .AN-form-input:read-only {
+            background: var(--AN-bg-color);
+            cursor: text;
+            border-color: var(--AN-primary-color);
+        }
+
+        .AN-edit-btn {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--AN-primary-color);
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .AN-form-group {
+            position: relative;
+        }
+    </style>
+</head>
+<body class="AN-body">
+    <!-- Header (Same as index.html) -->
+    <header class="AN-header">
+        <div class="AN-container">
+            <div class="AN-header-content">
+                <div class="AN-logo-section">
+                    <a href="/" class="AN-logo-link">
+                        <div class="AN-logo fallback-logo">
+                            <img src="assets/icons/icon-96x96.png" alt="Astronomy News Logo" onerror="this.style.display='none'; this.parentElement.classList.add('fallback-logo')">
+                            <i class="fas fa-star" style="display: none;"></i>
+                        </div>
+                    </a>
+                </div>
+                <div class="AN-title-section">
+                    <h1 class="AN-title">Personal Profile</h1>
+                </div>
+                <div class="AN-options-card">
+                    <div class="AN-controls-compact">
+                        <div class="AN-control-group">
+                            <button class="AN-btn AN-btn-secondary" id="AN-back-to-home">
+                                <i class="fas fa-home"></i> Home
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Profile Content -->
+    <main class="AN-main">
+        <div class="AN-profile-container">
+            <div class="AN-profile-header">
+                <button class="AN-back-btn" onclick="window.history.back()">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+                <h2>Manage Your Profile</h2>
+            </div>
+
+            <div class="AN-profile-content">
+                <!-- Left Column: Avatar -->
+                <div class="AN-avatar-section">
+                    <h3 class="AN-avatar-title">Your Avatar</h3>
+                    <div class="AN-avatar-current">
+                        <div class="AN-avatar-display" id="AN-current-avatar">
+                            <!-- Avatar will be loaded here -->
+                        </div>
+                        <p id="AN-avatar-status">Click below to change</p>
+                    </div>
+                    <button class="AN-avatar-change-btn" id="AN-change-avatar-btn">
+                        <i class="fas fa-camera"></i> Change Avatar
+                    </button>
+                </div>
+
+                <!-- Right Column: Profile Information -->
+                <div class="AN-profile-info-section">
+                    <h3 class="AN-section-title">Personal Information</h3>
+                    <form class="AN-profile-form" id="AN-profile-form">
+                        <div class="AN-form-group">
+                            <label class="AN-form-label" for="AN-profile-name">Full Name</label>
+                            <input type="text" id="AN-profile-name" class="AN-form-input" required>
+                            <button type="button" class="AN-edit-btn" data-field="name">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </div>
+
+                        <div class="AN-form-group">
+                            <label class="AN-form-label" for="AN-profile-username">Username</label>
+                            <input type="text" id="AN-profile-username" class="AN-form-input" readonly>
+                            <small class="AN-form-hint">Username cannot be changed</small>
+                        </div>
+
+                        <div class="AN-form-group">
+                            <label class="AN-form-label" for="AN-profile-email">Email Address</label>
+                            <input type="email" id="AN-profile-email" class="AN-form-input" readonly>
+                            <button type="button" class="AN-edit-btn" data-field="email">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </div>
+
+                        <div class="AN-form-group">
+                            <label class="AN-form-label" for="AN-profile-bio">Bio</label>
+                            <textarea id="AN-profile-bio" class="AN-form-input" rows="3" placeholder="Tell us about your interest in astronomy..."></textarea>
+                        </div>
+
+                        <div class="AN-form-group">
+                            <label class="AN-form-label" for="AN-profile-location">Location</label>
+                            <input type="text" id="AN-profile-location" class="AN-form-input" placeholder="City, Country">
+                        </div>
+
+                        <div class="AN-form-actions">
+                            <button type="button" class="AN-btn AN-btn-secondary" id="AN-cancel-changes">
+                                Cancel
+                            </button>
+                            <button type="submit" class="AN-btn AN-btn-primary" id="AN-save-profile">
+                                Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Password Section -->
+            <div class="AN-password-section">
+                <h3 class="AN-section-title">Change Password</h3>
+                <form class="AN-profile-form" id="AN-password-form">
+                    <div class="AN-form-group">
+                        <label class="AN-form-label" for="AN-current-password">Current Password</label>
+                        <input type="password" id="AN-current-password" class="AN-form-input" required>
+                    </div>
+
+                    <div class="AN-form-group">
+                        <label class="AN-form-label" for="AN-new-password">New Password</label>
+                        <input type="password" id="AN-new-password" class="AN-form-input" required>
+                        <small class="AN-form-hint">Minimum 8 characters with uppercase, lowercase, number, and special character</small>
+                    </div>
+
+                    <div class="AN-form-group">
+                        <label class="AN-form-label" for="AN-confirm-password">Confirm New Password</label>
+                        <input type="password" id="AN-confirm-password" class="AN-form-input" required>
+                    </div>
+
+                    <div class="AN-form-actions">
+                        <button type="submit" class="AN-btn AN-btn-primary" id="AN-change-password">
+                            Change Password
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Stats Section -->
+            <div class="AN-stats-section">
+                <h3 class="AN-section-title">Your Activity</h3>
+                <div class="AN-stats-grid" id="AN-user-stats">
+                    <!-- Stats will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="AN-danger-zone">
+                <h3 class="AN-danger-title">Danger Zone</h3>
+                <p class="AN-danger-text">Once you delete your account, there is no going back. Please be certain.</p>
+                <button class="AN-btn AN-btn-danger" id="AN-delete-account">
+                    <i class="fas fa-trash"></i> Delete Account
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Avatar Selection Modal -->
+    <div class="AN-avatar-modal" id="AN-avatar-modal">
+        <div class="AN-avatar-modal-content">
+            <div class="AN-avatar-modal-header">
+                <h3 class="AN-avatar-modal-title">Choose Your Avatar</h3>
+                <button class="AN-avatar-modal-close" id="AN-avatar-modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="AN-avatar-options" id="AN-avatar-options">
+                <!-- Avatar options will be generated here -->
+            </div>
+
+            <div class="AN-avatar-upload-section">
+                <label class="AN-avatar-upload-label">Or Upload Your Own</label>
+                <input type="file" class="AN-avatar-upload-input" id="AN-avatar-upload" accept="image/*">
+                <div class="AN-avatar-upload-preview" id="AN-avatar-preview">
+                    <img src="" alt="Preview">
+                </div>
+            </div>
+
+            <div class="AN-avatar-modal-actions">
+                <button class="AN-btn AN-btn-secondary" id="AN-avatar-cancel">
+                    Cancel
+                </button>
+                <button class="AN-btn AN-btn-primary" id="AN-avatar-save">
+                    Save Avatar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="AN-profile-toast" id="AN-profile-toast">
+        <i class="fas fa-check-circle"></i>
+        <span id="AN-toast-message"></span>
+    </div>
+
+    <!-- Scripts -->
+    <script src="app.js"></script>
+    <script>
+        // Profile Page JavaScript
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize profile page
+            AN_initProfilePage();
+        });
+
+        function AN_initProfilePage() {
+            console.log('Initializing profile page...');
+
+            // Check if user is logged in
+            if (!AN_app || !AN_app.state.user) {
+                AN_showToast('Please login to access your profile', 'error');
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+                return;
+            }
+
+            // Load user data
+            AN_loadProfileData();
+
+            // Setup event listeners
+            AN_setupProfileEventListeners();
+
+            // Generate avatar options
+            AN_generateAvatarOptions();
+
+            // Load user stats
+            AN_loadUserStats();
+        }
+
+        function AN_loadProfileData() {
+            const user = AN_app.state.user;
+            
+            // Fill form fields
+            document.getElementById('AN-profile-name').value = user.name || '';
+            document.getElementById('AN-profile-username').value = user.user_name || '';
+            document.getElementById('AN-profile-email').value = user.email || '';
+            document.getElementById('AN-profile-bio').value = user.preferences?.bio || '';
+            document.getElementById('AN-profile-location').value = user.preferences?.location || '';
+
+            // Load avatar
+            AN_loadAvatar();
+        }
+
+        function AN_loadAvatar() {
+            const user = AN_app.state.user;
+            const avatarDisplay = document.getElementById('AN-current-avatar');
+            const avatarStatus = document.getElementById('AN-avatar-status');
+
+            let avatarUrl = user.preferences?.avatar_url;
+            
+            if (avatarUrl && avatarUrl.startsWith('http')) {
+                // Remote image
+                avatarDisplay.innerHTML = `<img src="${avatarUrl}" alt="User Avatar">`;
+                avatarStatus.textContent = 'Custom avatar';
+            } else if (avatarUrl && avatarUrl.startsWith('avatar-')) {
+                // Predefined avatar
+                const avatarNumber = avatarUrl.replace('avatar-', '');
+                avatarDisplay.innerHTML = `<i class="fas ${AN_getAvatarIcon(avatarNumber)}"></i>`;
+                avatarStatus.textContent = 'Predefined avatar';
+            } else if (user.name) {
+                // Initial letter avatar
+                const initial = user.name.charAt(0).toUpperCase();
+                avatarDisplay.innerHTML = `<span style="font-size: 48px; font-weight: bold;">${initial}</span>`;
+                avatarStatus.textContent = 'Initial avatar';
+            } else {
+                // Default avatar
+                avatarDisplay.innerHTML = '<i class="fas fa-user-astronaut"></i>';
+                avatarStatus.textContent = 'Default avatar';
+            }
+        }
+
+        function AN_generateAvatarOptions() {
+            const container = document.getElementById('AN-avatar-options');
+            const avatars = [
+                { id: 'avatar-1', icon: 'fa-user-astronaut', label: 'Astronaut' },
+                { id: 'avatar-2', icon: 'fa-moon', label: 'Moon' },
+                { id: 'avatar-3', icon: 'fa-sun', label: 'Sun' },
+                { id: 'avatar-4', icon: 'fa-star', label: 'Star' },
+                { id: 'avatar-5', icon: 'fa-rocket', label: 'Rocket' },
+                { id: 'avatar-6', icon: 'fa-satellite', label: 'Satellite' },
+                { id: 'avatar-7', icon: 'fa-globe-americas', label: 'Earth' },
+                { id: 'avatar-8', icon: 'fa-meteor', label: 'Meteor' },
+                { id: 'avatar-9', icon: 'fa-user-secret', label: 'Mystery' },
+                { id: 'avatar-10', icon: 'fa-robot', label: 'Robot' },
+                { id: 'avatar-11', icon: 'fa-hat-wizard', label: 'Wizard' },
+                { id: 'avatar-12', icon: 'fa-user-ninja', label: 'Ninja' }
+            ];
+
+            container.innerHTML = avatars.map(avatar => `
+                <div class="AN-avatar-option" data-avatar-id="${avatar.id}" title="${avatar.label}">
+                    <i class="fas ${avatar.icon}"></i>
+                </div>
+            `).join('');
+        }
+
+        function AN_getAvatarIcon(avatarNumber) {
+            const avatars = {
+                '1': 'fa-user-astronaut',
+                '2': 'fa-moon',
+                '3': 'fa-sun',
+                '4': 'fa-star',
+                '5': 'fa-rocket',
+                '6': 'fa-satellite',
+                '7': 'fa-globe-americas',
+                '8': 'fa-meteor',
+                '9': 'fa-user-secret',
+                '10': 'fa-robot',
+                '11': 'fa-hat-wizard',
+                '12': 'fa-user-ninja'
+            };
+            return avatars[avatarNumber] || 'fa-user';
+        }
+
+        function AN_setupProfileEventListeners() {
+            // Avatar change button
+            document.getElementById('AN-change-avatar-btn').addEventListener('click', () => {
+                document.getElementById('AN-avatar-modal').classList.add('active');
+            });
+
+            // Avatar modal close
+            document.getElementById('AN-avatar-modal-close').addEventListener('click', () => {
+                document.getElementById('AN-avatar-modal').classList.remove('active');
+            });
+
+            // Avatar cancel button
+            document.getElementById('AN-avatar-cancel').addEventListener('click', () => {
+                document.getElementById('AN-avatar-modal').classList.remove('active');
+            });
+
+            // Avatar selection
+            document.addEventListener('click', (e) => {
+                const avatarOption = e.target.closest('.AN-avatar-option');
+                if (avatarOption) {
+                    // Remove active class from all options
+                    document.querySelectorAll('.AN-avatar-option').forEach(opt => {
+                        opt.classList.remove('active');
+                    });
+                    // Add active class to selected option
+                    avatarOption.classList.add('active');
+                    
+                    // Clear upload preview
+                    document.getElementById('AN-avatar-upload').value = '';
+                    document.getElementById('AN-avatar-preview').style.display = 'none';
+                }
+            });
+
+            // Avatar upload
+            document.getElementById('AN-avatar-upload').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const preview = document.getElementById('AN-avatar-preview');
+                        preview.querySelector('img').src = e.target.result;
+                        preview.style.display = 'flex';
+                        
+                        // Remove active class from predefined avatars
+                        document.querySelectorAll('.AN-avatar-option').forEach(opt => {
+                            opt.classList.remove('active');
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // Save avatar
+            document.getElementById('AN-avatar-save').addEventListener('click', AN_saveAvatar);
+
+            // Profile form submission
+            document.getElementById('AN-profile-form').addEventListener('submit', AN_saveProfile);
+
+            // Cancel changes
+            document.getElementById('AN-cancel-changes').addEventListener('click', () => {
+                AN_loadProfileData();
+                AN_showToast('Changes cancelled', 'info');
+            });
+
+            // Password form submission
+            document.getElementById('AN-password-form').addEventListener('submit', AN_changePassword);
+
+            // Edit buttons
+            document.querySelectorAll('.AN-edit-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const field = this.dataset.field;
+                    const input = document.getElementById(`AN-profile-${field}`);
+                    input.readOnly = !input.readOnly;
+                    this.innerHTML = input.readOnly ? 
+                        '<i class="fas fa-edit"></i>' : 
+                        '<i class="fas fa-save"></i>';
+                });
+            });
+
+            // Back to home
+            document.getElementById('AN-back-to-home').addEventListener('click', () => {
+                window.location.href = '/';
+            });
+
+            // Delete account
+            document.getElementById('AN-delete-account').addEventListener('click', AN_confirmDeleteAccount);
+        }
+
+        async function AN_saveAvatar() {
+            const modal = document.getElementById('AN-avatar-modal');
+            const selectedAvatar = document.querySelector('.AN-avatar-option.active');
+            const uploadInput = document.getElementById('AN-avatar-upload');
+            const file = uploadInput.files[0];
+
+            let avatarData = null;
+
+            if (file) {
+                // Upload custom avatar
+                try {
+                    avatarData = await AN_uploadAvatar(file);
+                } catch (error) {
+                    AN_showToast('Failed to upload avatar', 'error');
+                    return;
+                }
+            } else if (selectedAvatar) {
+                // Use predefined avatar
+                const avatarId = selectedAvatar.dataset.avatarId;
+                avatarData = { avatar_url: avatarId };
+            } else {
+                AN_showToast('Please select an avatar or upload an image', 'warning');
+                return;
+            }
+
+            // Save to user preferences
+            try {
+                await AN_app.updateUserPreferences(avatarData);
+                AN_loadAvatar();
+                modal.classList.remove('active');
+                AN_showToast('Avatar updated successfully!', 'success');
+            } catch (error) {
+                AN_showToast('Failed to save avatar', 'error');
+            }
+        }
+
+        async function AN_uploadAvatar(file) {
+            return new Promise((resolve, reject) => {
+                // In a real app, you would upload to Supabase Storage
+                // For now, we'll create a data URL
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    resolve({ avatar_url: e.target.result });
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function AN_saveProfile(e) {
+            e.preventDefault();
+
+            const saveBtn = document.getElementById('AN-save-profile');
+            const originalText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<span class="AN-loading"></span> Saving...';
+            saveBtn.disabled = true;
+
+            try {
+                const profileData = {
+                    name: document.getElementById('AN-profile-name').value,
+                    email: document.getElementById('AN-profile-email').value,
+                    preferences: {
+                        ...AN_app.state.user.preferences,
+                        bio: document.getElementById('AN-profile-bio').value,
+                        location: document.getElementById('AN-profile-location').value
+                    }
+                };
+
+                await AN_app.updateProfile(profileData);
+                AN_showToast('Profile updated successfully!', 'success');
+            } catch (error) {
+                AN_showToast('Failed to update profile: ' + error.message, 'error');
+            } finally {
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+            }
+        }
+
+        async function AN_changePassword(e) {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('AN-current-password').value;
+            const newPassword = document.getElementById('AN-new-password').value;
+            const confirmPassword = document.getElementById('AN-confirm-password').value;
+
+            if (newPassword !== confirmPassword) {
+                AN_showToast('New passwords do not match', 'error');
+                return;
+            }
+
+            const changeBtn = document.getElementById('AN-change-password');
+            const originalText = changeBtn.innerHTML;
+            changeBtn.innerHTML = '<span class="AN-loading"></span> Changing...';
+            changeBtn.disabled = true;
+
+            try {
+                await AN_app.changePassword(currentPassword, newPassword);
+                AN_showToast('Password changed successfully!', 'success');
+                document.getElementById('AN-password-form').reset();
+            } catch (error) {
+                AN_showToast('Failed to change password: ' + error.message, 'error');
+            } finally {
+                changeBtn.innerHTML = originalText;
+                changeBtn.disabled = false;
+            }
+        }
+
+        async function AN_loadUserStats() {
+            const container = document.getElementById('AN-user-stats');
+            const user = AN_app.state.user;
+
+            try {
+                // Fetch user stats from Supabase
+                const stats = await AN_app.getUserStats();
+                
+                const statsHTML = `
+                    <div class="AN-stat-card">
+                        <div class="AN-stat-value">${stats.reactions || 0}</div>
+                        <div class="AN-stat-label">Reactions Given</div>
+                    </div>
+                    <div class="AN-stat-card">
+                        <div class="AN-stat-value">${stats.comments || 0}</div>
+                        <div class="AN-stat-label">Comments Posted</div>
+                    </div>
+                    <div class="AN-stat-card">
+                        <div class="AN-stat-value">${stats.days || 1}</div>
+                        <div class="AN-stat-label">Days Active</div>
+                    </div>
+                    <div class="AN-stat-card">
+                        <div class="AN-stat-value">${new Date(user.created_at).toLocaleDateString()}</div>
+                        <div class="AN-stat-label">Member Since</div>
+                    </div>
+                `;
+
+                container.innerHTML = statsHTML;
+            } catch (error) {
+                container.innerHTML = '<p>Unable to load stats</p>';
+            }
+        }
+
+        function AN_confirmDeleteAccount() {
+            if (confirm('Are you sure you want to delete your account? This action cannot be undone!')) {
+                AN_deleteAccount();
+            }
+        }
+
+        async function AN_deleteAccount() {
+            try {
+                await AN_app.deleteAccount();
+                AN_showToast('Account deleted successfully', 'success');
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+            } catch (error) {
+                AN_showToast('Failed to delete account: ' + error.message, 'error');
+            }
+        }
+
+        function AN_showToast(message, type = 'info') {
+            const toast = document.getElementById('AN-profile-toast');
+            const messageEl = document.getElementById('AN-toast-message');
+            
+            // Set message and type
+            messageEl.textContent = message;
+            toast.style.background = type === 'success' ? 'var(--AN-success-color)' :
+                                   type === 'error' ? 'var(--AN-danger-color)' :
+                                   type === 'warning' ? 'var(--AN-warning-color)' :
+                                   'var(--AN-primary-color)';
+            
+            // Show toast
+            toast.style.display = 'flex';
+            
+            // Auto hide after 3 seconds
+            setTimeout(() => {
+                toast.style.animation = 'AN-toast-slide-out 0.3s ease';
+                setTimeout(() => {
+                    toast.style.display = 'none';
+                    toast.style.animation = '';
+                }, 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

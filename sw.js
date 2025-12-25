@@ -1,8 +1,8 @@
 // Service Worker for Astronomy News PWA
-const CACHE_NAME = 'astronomy-news-v2.2';
+const CACHE_NAME = 'astronomy-news-v2.3';
 const OFFLINE_URL = '/offline.html';
-const STATIC_CACHE = 'static-v22';
-const DYNAMIC_CACHE = 'dynamic-v22';
+const STATIC_CACHE = 'static-v23';
+const DYNAMIC_CACHE = 'dynamic-v23';
 
 // Assets to cache on install
 const STATIC_ASSETS = [

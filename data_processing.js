@@ -187,6 +187,10 @@ function AN_renderNews(language = 'en', category = 'all') {
                             <i class="fab fa-whatsapp"></i>
                             <span>${AN_translations[language]?.['An.reaction.shareWhatsApp'] || 'WhatsApp'}</span>
                         </button>
+    <button class="AN-share-option" data-platform="telegram">
+        <i class="fab fa-telegram"></i>
+        <span>${AN_translations[language]?.['An.reaction.shareTelegram'] || 'Telegram'}</span>
+    </button>
                         <button class="AN-share-option" data-platform="copy">
                             <i class="fas fa-link"></i>
                             <span>${AN_translations[language]?.['An.reaction.copyLink'] || 'Copy Link'}</span>
@@ -290,6 +294,10 @@ function AN_renderEvents(language = 'en') {
                                 <i class="fab fa-whatsapp"></i>
                                 <span>${AN_translations[language]?.['An.reaction.shareWhatsApp'] || 'WhatsApp'}</span>
                             </button>
+    <button class="AN-share-option" data-platform="telegram">
+        <i class="fab fa-telegram"></i>
+        <span>${AN_translations[language]?.['An.reaction.shareTelegram'] || 'Telegram'}</span>
+    </button>
                             <button class="AN-share-option" data-platform="copy">
                                 <i class="fas fa-link"></i>
                                 <span>${AN_translations[language]?.['An.reaction.copyLink'] || 'Copy Link'}</span>
@@ -399,6 +407,10 @@ function AN_renderAllNews(language = 'en') {
                             <i class="fab fa-whatsapp"></i>
                             <span>${AN_translations[language]?.['An.reaction.shareWhatsApp'] || 'WhatsApp'}</span>
                         </button>
+    <button class="AN-share-option" data-platform="telegram">
+        <i class="fab fa-telegram"></i>
+        <span>${AN_translations[language]?.['An.reaction.shareTelegram'] || 'Telegram'}</span>
+    </button>
                         <button class="AN-share-option" data-platform="copy">
                             <i class="fas fa-link"></i>
                             <span>${AN_translations[language]?.['An.reaction.copyLink'] || 'Copy Link'}</span>

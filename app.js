@@ -941,6 +941,228 @@ const AN_app = {
         this.updateUserUI();
         this.showMessage('An.message.logoutSuccess');
     },
+
+	// Profile Management Methods
+	updateProfile: async function(profileData) {
+		if (!this.state.user) {
+			throw new Error('User not logged in');
+		}
+
+		try {
+			// Update in Supabase
+			const response = await fetch(
+				`${this.config.supabaseUrl}/rest/v1/users?user_id=eq.${this.state.user.user_id}`,
+				{
+					method: 'PATCH',
+					headers: {
+						'Content-Type': 'application/json',
+						'apikey': this.config.supabaseKey,
+						'Authorization': `Bearer ${this.state.user?.token || this.config.supabaseKey}`,
+						'Prefer': 'return=representation'
+					},
+					body: JSON.stringify({
+						name: profileData.name,
+						email: profileData.email,
+						preferences: profileData.preferences,
+						updated_at: new Date().toISOString()
+					})
+				}
+			);
+
+			if (!response.ok) {
+				throw new Error('Failed to update profile');
+			}
+
+			// Update local state
+			this.state.user = {
+				...this.state.user,
+				name: profileData.name,
+				email: profileData.email,
+				preferences: profileData.preferences
+			};
+
+			// Save to localStorage
+			this.saveUserState();
+			this.updateUserUI();
+
+			return true;
+		} catch (error) {
+			console.error('Profile update error:', error);
+			throw error;
+		}
+	},
+
+	updateUserPreferences: async function(preferences) {
+		if (!this.state.user) {
+			throw new Error('User not logged in');
+		}
+
+		try {
+			const currentPrefs = this.state.user.preferences || {};
+			const newPrefs = { ...currentPrefs, ...preferences };
+
+			const response = await fetch(
+				`${this.config.supabaseUrl}/rest/v1/users?user_id=eq.${this.state.user.user_id}`,
+				{
+					method: 'PATCH',
+					headers: {
+						'Content-Type': 'application/json',
+						'apikey': this.config.supabaseKey,
+						'Authorization': `Bearer ${this.state.user?.token || this.config.supabaseKey}`,
+						'Prefer': 'return=representation'
+					},
+					body: JSON.stringify({
+						preferences: newPrefs,
+						updated_at: new Date().toISOString()
+					})
+				}
+			);
+
+			if (!response.ok) {
+				throw new Error('Failed to update preferences');
+			}
+
+			// Update local state
+			this.state.user.preferences = newPrefs;
+			this.saveUserState();
+
+			return true;
+		} catch (error) {
+			console.error('Preferences update error:', error);
+			throw error;
+		}
+	},
+
+	changePassword: async function(currentPassword, newPassword) {
+		if (!this.state.user) {
+			throw new Error('User not logged in');
+		}
+
+		try {
+			// Update password in Supabase Auth
+			const response = await fetch(`${this.config.supabaseUrl}/auth/v1/user`, {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json',
+					'apikey': this.config.supabaseKey,
+					'Authorization': `Bearer ${this.state.user.token}`
+				},
+				body: JSON.stringify({
+					password: newPassword
+				})
+			});
+
+			if (!response.ok) {
+				const error = await response.json();
+				throw new Error(error.message || 'Failed to change password');
+			}
+
+			return true;
+		} catch (error) {
+			console.error('Password change error:', error);
+			throw error;
+		}
+	},
+
+	getUserStats: async function() {
+		if (!this.state.user) {
+			return { reactions: 0, comments: 0, days: 1 };
+		}
+
+		try {
+			const [reactionsRes, commentsRes] = await Promise.all([
+				fetch(`${this.config.supabaseUrl}/rest/v1/reactions?user_id=eq.${this.state.user.user_id}&select=count`, {
+					headers: {
+						'apikey': this.config.supabaseKey,
+						'Authorization': `Bearer ${this.state.user?.token || this.config.supabaseKey}`
+					}
+				}),
+				fetch(`${this.config.supabaseUrl}/rest/v1/comments?user_id=eq.${this.state.user.user_id}&select=count`, {
+					headers: {
+						'apikey': this.config.supabaseKey,
+						'Authorization': `Bearer ${this.state.user?.token || this.config.supabaseKey}`
+					}
+				})
+			]);
+
+			let reactions = 0;
+			let comments = 0;
+
+			if (reactionsRes.ok) {
+				const data = await reactionsRes.json();
+				reactions = data[0]?.count || 0;
+			}
+
+			if (commentsRes.ok) {
+				const data = await commentsRes.json();
+				comments = data[0]?.count || 0;
+			}
+
+			// Calculate days active
+			const joinDate = new Date(this.state.user.created_at || new Date());
+			const today = new Date();
+			const daysActive = Math.ceil((today - joinDate) / (1000 * 60 * 60 * 24));
+
+			return {
+				reactions,
+				comments,
+				days: daysActive || 1
+			};
+		} catch (error) {
+			console.error('Error fetching user stats:', error);
+			return { reactions: 0, comments: 0, days: 1 };
+		}
+	},
+
+	deleteAccount: async function() {
+		if (!this.state.user) {
+			throw new Error('User not logged in');
+		}
+
+		try {
+			// First delete from users table (this will cascade to reactions and comments)
+			const deleteResponse = await fetch(
+				`${this.config.supabaseUrl}/rest/v1/users?user_id=eq.${this.state.user.user_id}`,
+				{
+					method: 'DELETE',
+					headers: {
+						'apikey': this.config.supabaseKey,
+						'Authorization': `Bearer ${this.state.user?.token || this.config.supabaseKey}`
+					}
+				}
+			);
+
+			if (!deleteResponse.ok) {
+				throw new Error('Failed to delete user data');
+			}
+
+			// Then delete from Auth (requires admin privileges)
+			// Note: In production, you might want to use a serverless function for this
+			const authResponse = await fetch(`${this.config.supabaseUrl}/auth/v1/admin/users/${this.state.user.user_id}`, {
+				method: 'DELETE',
+				headers: {
+					'Authorization': `Bearer ${this.config.supabaseKey}`,
+					'apikey': this.config.supabaseKey
+				}
+			});
+
+			if (!authResponse.ok) {
+				console.warn('Could not delete auth user (might require admin privileges)');
+			}
+
+			// Clear local state
+			this.state.user = null;
+			localStorage.removeItem('AN_user');
+			localStorage.removeItem('AN_user_reactions');
+			localStorage.removeItem('AN_user_comments');
+			this.updateUserUI();
+
+			return true;
+		} catch (error) {
+			console.error('Account deletion error:', error);
+			throw error;
+		}
+	},
     
     // Load user interactions from Supabase
     loadUserInteractions: async function() {
@@ -1428,6 +1650,9 @@ const AN_app = {
             case 'whatsapp':
                 window.open(`https://wa.me/?text=${encodeURIComponent(title + ' - ' + url)}`, '_blank');
                 break;
+			case 'telegram':
+				window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`, '_blank');
+				break;
             case 'copy':
                 navigator.clipboard.writeText(url).then(() => {
                     this.showMessage('An.message.shareSuccess');
@@ -1497,6 +1722,10 @@ const AN_app = {
                             <i class="fab fa-whatsapp"></i>
                             <span>${AN_translations[this.state.currentLanguage]['An.reaction.shareWhatsApp']}</span>
                         </button>
+    <button class="AN-share-option" data-platform="telegram">
+        <i class="fab fa-telegram"></i>
+        <span>${AN_translations[this.state.currentLanguage]['An.reaction.shareTelegram'] || 'Telegram'}</span>
+    </button>
                         <button class="AN-share-option" data-platform="copy">
                             <i class="fas fa-link"></i>
                             <span>${AN_translations[this.state.currentLanguage]['An.reaction.copyLink']}</span>
