@@ -9,6 +9,7 @@
   from = "/*"
   to = "/index.html"
   status = 200
+  condition = "!path.existing"
 
 [[headers]]
   for = "/*"
@@ -22,4 +23,5 @@
   for = "/sw.js"
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
+
     Service-Worker-Allowed = "/"
