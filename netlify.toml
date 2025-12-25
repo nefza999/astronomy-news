@@ -6,6 +6,17 @@
   NODE_VERSION = "18"
 
 [[redirects]]
+  from = "/"
+  to = "/index.html"
+  status = 200
+  condition = "!path.existing"
+
+[[redirects]]
+  from = "/*.html"
+  to = "/:splat.html"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
@@ -25,3 +36,4 @@
     Cache-Control = "no-cache, no-store, must-revalidate"
 
     Service-Worker-Allowed = "/"
+
