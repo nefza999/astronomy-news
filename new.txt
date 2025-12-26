@@ -1492,7 +1492,7 @@ const AN_app = {
         // Initialize offline sync
         this.initializeOfflineSync();
         // Initialize router
-        this.initializeRouter();
+        // this.initializeRouter();
         // Load interaction statistics
         await this.loadInteractionStats();
         // Load initial data
@@ -1726,14 +1726,14 @@ const AN_app = {
         // Initial route
         this.handleRouteChange();
         // Intercept link clicks
-        document.addEventListener('click', (e) => {
-            const link = e.target.closest('a[href^="/"]');
-            if (link && !link.hasAttribute('target')) {
-                e.preventDefault();
-                const path = link.getAttribute('href');
-                this.navigateTo(path);
-            }
-        });
+        // document.addEventListener('click', (e) => {
+//     const link = e.target.closest('a[href^="/"]');
+//     if (link && !link.hasAttribute('target')) {
+//         e.preventDefault();
+//         const path = link.getAttribute('href');
+//         this.navigateTo(path);
+//     }
+// });
     },
     // Handle route changes
     handleRouteChange: function() {
@@ -2259,13 +2259,11 @@ const AN_app = {
         this.updateUserUI();
         this.showMessage('An.message.logoutSuccess');
     },
-
 	// Profile Management Methods
 	updateProfile: async function(profileData) {
 		if (!this.state.user) {
 			throw new Error('User not logged in');
 		}
-
 		try {
 			// Update in Supabase
 			const response = await fetch(
@@ -2286,11 +2284,9 @@ const AN_app = {
 					})
 				}
 			);
-
 			if (!response.ok) {
 				throw new Error('Failed to update profile');
 			}
-
 			// Update local state
 			this.state.user = {
 				...this.state.user,
@@ -2298,27 +2294,22 @@ const AN_app = {
 				email: profileData.email,
 				preferences: profileData.preferences
 			};
-
 			// Save to localStorage
 			this.saveUserState();
 			this.updateUserUI();
-
 			return true;
 		} catch (error) {
 			console.error('Profile update error:', error);
 			throw error;
 		}
 	},
-
 	updateUserPreferences: async function(preferences) {
 		if (!this.state.user) {
 			throw new Error('User not logged in');
 		}
-
 		try {
 			const currentPrefs = this.state.user.preferences || {};
 			const newPrefs = { ...currentPrefs, ...preferences };
-
 			const response = await fetch(
 				`${this.config.supabaseUrl}/rest/v1/users?user_id=eq.${this.state.user.user_id}`,
 				{
@@ -2335,27 +2326,22 @@ const AN_app = {
 					})
 				}
 			);
-
 			if (!response.ok) {
 				throw new Error('Failed to update preferences');
 			}
-
 			// Update local state
 			this.state.user.preferences = newPrefs;
 			this.saveUserState();
-
 			return true;
 		} catch (error) {
 			console.error('Preferences update error:', error);
 			throw error;
 		}
 	},
-
 	changePassword: async function(currentPassword, newPassword) {
 		if (!this.state.user) {
 			throw new Error('User not logged in');
 		}
-
 		try {
 			// Update password in Supabase Auth
 			const response = await fetch(`${this.config.supabaseUrl}/auth/v1/user`, {
@@ -2369,24 +2355,20 @@ const AN_app = {
 					password: newPassword
 				})
 			});
-
 			if (!response.ok) {
 				const error = await response.json();
 				throw new Error(error.message || 'Failed to change password');
 			}
-
 			return true;
 		} catch (error) {
 			console.error('Password change error:', error);
 			throw error;
 		}
 	},
-
 	getUserStats: async function() {
 		if (!this.state.user) {
 			return { reactions: 0, comments: 0, days: 1 };
 		}
-
 		try {
 			const [reactionsRes, commentsRes] = await Promise.all([
 				fetch(`${this.config.supabaseUrl}/rest/v1/reactions?user_id=eq.${this.state.user.user_id}&select=count`, {
@@ -2402,25 +2384,20 @@ const AN_app = {
 					}
 				})
 			]);
-
 			let reactions = 0;
 			let comments = 0;
-
 			if (reactionsRes.ok) {
 				const data = await reactionsRes.json();
 				reactions = data[0]?.count || 0;
 			}
-
 			if (commentsRes.ok) {
 				const data = await commentsRes.json();
 				comments = data[0]?.count || 0;
 			}
-
 			// Calculate days active
 			const joinDate = new Date(this.state.user.created_at || new Date());
 			const today = new Date();
 			const daysActive = Math.ceil((today - joinDate) / (1000 * 60 * 60 * 24));
-
 			return {
 				reactions,
 				comments,
@@ -2431,12 +2408,10 @@ const AN_app = {
 			return { reactions: 0, comments: 0, days: 1 };
 		}
 	},
-
 	deleteAccount: async function() {
 		if (!this.state.user) {
 			throw new Error('User not logged in');
 		}
-
 		try {
 			// First delete from users table (this will cascade to reactions and comments)
 			const deleteResponse = await fetch(
@@ -2449,11 +2424,9 @@ const AN_app = {
 					}
 				}
 			);
-
 			if (!deleteResponse.ok) {
 				throw new Error('Failed to delete user data');
 			}
-
 			// Then delete from Auth (requires admin privileges)
 			// Note: In production, you might want to use a serverless function for this
 			const authResponse = await fetch(`${this.config.supabaseUrl}/auth/v1/admin/users/${this.state.user.user_id}`, {
@@ -2463,18 +2436,15 @@ const AN_app = {
 					'apikey': this.config.supabaseKey
 				}
 			});
-
 			if (!authResponse.ok) {
 				console.warn('Could not delete auth user (might require admin privileges)');
 			}
-
 			// Clear local state
 			this.state.user = null;
 			localStorage.removeItem('AN_user');
 			localStorage.removeItem('AN_user_reactions');
 			localStorage.removeItem('AN_user_comments');
 			this.updateUserUI();
-
 			return true;
 		} catch (error) {
 			console.error('Account deletion error:', error);

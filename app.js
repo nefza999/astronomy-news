@@ -62,7 +62,7 @@ const AN_app = {
         this.initializeOfflineSync();
         
         // Initialize router
-        this.initializeRouter();
+        // this.initializeRouter();
         
         // Load interaction statistics
         await this.loadInteractionStats();
@@ -335,14 +335,14 @@ const AN_app = {
         this.handleRouteChange();
         
         // Intercept link clicks
-        document.addEventListener('click', (e) => {
-            const link = e.target.closest('a[href^="/"]');
-            if (link && !link.hasAttribute('target')) {
-                e.preventDefault();
-                const path = link.getAttribute('href');
-                this.navigateTo(path);
-            }
-        });
+        // document.addEventListener('click', (e) => {
+//     const link = e.target.closest('a[href^="/"]');
+//     if (link && !link.hasAttribute('target')) {
+//         e.preventDefault();
+//         const path = link.getAttribute('href');
+//         this.navigateTo(path);
+//     }
+// });
     },
     
     // Handle route changes
