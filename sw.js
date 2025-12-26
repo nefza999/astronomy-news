@@ -1,8 +1,8 @@
 // Service Worker for Astronomy News PWA
-const CACHE_NAME = 'astronomy-news-v2.4';
+const CACHE_NAME = 'astronomy-news-v2.5';
 const OFFLINE_URL = '/offline.html';
-const STATIC_CACHE = 'static-v24';
-const DYNAMIC_CACHE = 'dynamic-v24';
+const STATIC_CACHE = 'static-v25';
+const DYNAMIC_CACHE = 'dynamic-v25';
 
 // Assets to cache on install
 const STATIC_ASSETS = [
@@ -363,4 +363,5 @@ async function updateNewsBackground() {
     } catch (error) {
         console.error('Background sync failed:', error);
     }
+
 }
