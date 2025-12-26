@@ -8,8 +8,7 @@ const AN_router = {
 		'/AN_gallery.html': 'gallery',
 		'/AN_missions.html': 'missions',
 		'/AN_explore.html': 'explore',
-		'/AN_about.html': 'about',
-		'/personal-profile.html': 'profile'
+		'/AN_about.html': 'about'
     },
     
     // Initialize router
@@ -674,4 +673,5 @@ document.addEventListener('DOMContentLoaded', () => {
 // Export for modular use
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = AN_router;
+
 }
